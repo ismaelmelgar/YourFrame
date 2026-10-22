@@ -8,3 +8,5 @@ out/
 core.*.dmp
 javacore.*.txt
 Snap.*.trc
+*.idsig
+__pycache__/
