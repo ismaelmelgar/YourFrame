@@ -3,7 +3,6 @@ package io.yourframe.tv;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.drawable.GradientDrawable;
@@ -18,6 +17,18 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import io.yourframe.tv.domain.Category;
+import io.yourframe.tv.domain.Frame;
+import io.yourframe.tv.domain.Mat;
+import io.yourframe.tv.domain.Night;
+import io.yourframe.tv.domain.Settings;
+import io.yourframe.tv.infrastructure.MetCatalogue;
+import io.yourframe.tv.infrastructure.ScreensaverActivation;
+import io.yourframe.tv.infrastructure.SettingsStore;
+import io.yourframe.tv.ui.ArtView;
+import io.yourframe.tv.ui.Fonts;
+import io.yourframe.tv.ui.Names;
+
 /**
  * The settings, in the screensaver's own newspaper look (paper, serif type, rules), driven with the D-pad: up and down
  * move between rows, left and right (or OK) change a value. On the right, the screensaver itself, live, reflecting
@@ -26,7 +37,6 @@ import android.widget.TextView;
 public class SettingsActivity extends Activity {
     private static final int PAPER = 0xFFF1EDE4, INK = 0xFF1E1C19, MUTED = 0xFF6B665C, RULE = 0xFFCFC9BC;
 
-    private SharedPreferences prefs;
     private ArtView preview;
     private TextView status, count;
     private float dp;
@@ -34,7 +44,6 @@ public class SettingsActivity extends Activity {
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         Fonts.init(this);
-        prefs = Prefs.get(this);
         dp = getResources().getDisplayMetrics().density;
 
         FrameLayout root = new FrameLayout(this);
@@ -57,32 +66,37 @@ public class SettingsActivity extends Activity {
         left.addView(new DoubleRule(this), new LinearLayout.LayoutParams(-1, px(9)));
         space(left, 6);
 
-        String[] catNames = names(Prefs.CATEGORY_NAMES);
-        String[] everyNames = new String[Prefs.EVERY.length];
+        String[] everyNames = new String[Settings.EVERY.length];
         for (int i = 0; i < everyNames.length; i++) {
-            int s = Prefs.EVERY[i];
-            everyNames[i] = s < 60 ? getString(R.string.every_s, s) : getString(R.string.every_min, s / 60);
+            int sec = Settings.EVERY[i];
+            everyNames[i] = sec < 60 ? getString(R.string.every_s, sec) : getString(R.string.every_min, sec / 60);
         }
         String[] onOff = {getString(R.string.on), getString(R.string.off)};
+        Category[] cats = Category.values();
+        Frame[] frames = Frame.values();
+        Mat[] mats = Mat.values();
+        Night[] nights = Night.values();
+        int[] matColors = new int[mats.length];
+        for (int i = 0; i < mats.length; i++) matColors[i] = mats[i].color;
 
-        left.addView(new Row(this, R.string.set_category, catNames, () -> Prefs.index(Prefs.CATEGORIES, prefs.getString("category", "all")),
-                i -> prefs.edit().putString("category", Prefs.CATEGORIES[i]).apply(), null));
-        left.addView(new Row(this, R.string.set_frame, names(Prefs.FRAME_NAMES), () -> Prefs.index(Prefs.FRAMES, prefs.getString("frame", "none")),
-                i -> prefs.edit().putString("frame", Prefs.FRAMES[i]).apply(), null));
-        left.addView(new Row(this, R.string.set_mat, names(Prefs.MAT_NAMES), () -> Prefs.index(Prefs.MATS, prefs.getString("mat", "paper")),
-                i -> prefs.edit().putString("mat", Prefs.MATS[i]).apply(), Prefs.MAT_COLORS));
-        left.addView(new Row(this, R.string.set_every, everyNames, () -> new Prefs.Snapshot(prefs).every,
-                i -> prefs.edit().putInt("every", Prefs.EVERY[i]).apply(), null));
-        left.addView(new Row(this, R.string.set_info, onOff, () -> prefs.getBoolean("info", true) ? 0 : 1,
-                i -> prefs.edit().putBoolean("info", i == 0).apply(), null));
-        left.addView(new Row(this, R.string.set_clock, onOff, () -> prefs.getBoolean("clock", true) ? 0 : 1,
-                i -> prefs.edit().putBoolean("clock", i == 0).apply(), null));
-        left.addView(new Row(this, R.string.set_night, names(Prefs.NIGHT_NAMES), () -> Prefs.index(Prefs.NIGHTS, prefs.getString("night", "22")),
-                i -> prefs.edit().putString("night", Prefs.NIGHTS[i]).apply(), null));
+        left.addView(new Row(this, R.string.set_category, names(cats, Names::category), x -> x.category.ordinal(),
+                (x, i) -> new Settings(cats[i], x.frame, x.mat, x.everySeconds, x.info, x.clock, x.night), null));
+        left.addView(new Row(this, R.string.set_frame, names(frames, Names::frame), x -> x.frame.ordinal(),
+                (x, i) -> new Settings(x.category, frames[i], x.mat, x.everySeconds, x.info, x.clock, x.night), null));
+        left.addView(new Row(this, R.string.set_mat, names(mats, Names::mat), x -> x.mat.ordinal(),
+                (x, i) -> new Settings(x.category, x.frame, mats[i], x.everySeconds, x.info, x.clock, x.night), matColors));
+        left.addView(new Row(this, R.string.set_every, everyNames, x -> indexOf(Settings.EVERY, x.everySeconds),
+                (x, i) -> new Settings(x.category, x.frame, x.mat, Settings.EVERY[i], x.info, x.clock, x.night), null));
+        left.addView(new Row(this, R.string.set_info, onOff, x -> x.info ? 0 : 1,
+                (x, i) -> new Settings(x.category, x.frame, x.mat, x.everySeconds, i == 0, x.clock, x.night), null));
+        left.addView(new Row(this, R.string.set_clock, onOff, x -> x.clock ? 0 : 1,
+                (x, i) -> new Settings(x.category, x.frame, x.mat, x.everySeconds, x.info, i == 0, x.night), null));
+        left.addView(new Row(this, R.string.set_night, names(nights, Names::night), x -> x.night.ordinal(),
+                (x, i) -> new Settings(x.category, x.frame, x.mat, x.everySeconds, x.info, x.clock, nights[i]), null));
         space(left, 8);
         Row previewRow = new Row(this, R.string.set_preview, () -> startActivity(new Intent(this, PreviewActivity.class)));
         left.addView(previewRow);
-        left.addView(new Row(this, R.string.set_activate, () -> Activation.activate(this, (t, done) -> {
+        left.addView(new Row(this, R.string.set_activate, () -> ScreensaverActivation.activate(this, (t, done) -> {
             status.setText(t);
             if (done) refreshStatus(false);
         })));
@@ -118,7 +132,7 @@ public class SettingsActivity extends Activity {
         count = text("", Fonts.textItalic, 10.5f, MUTED);
         right.addView(count);
         TextView credit = text("Images: The Metropolitan Museum of Art, Open Access (CC0). Type: Playfair Display, "
-                + "Libre Caslon Text (SIL OFL). Built on Free My TV (MIT).", Fonts.text, 9, MUTED);
+                + "Libre Caslon Text (SIL OFL). Built on Free My TV (MIT).", Fonts.text, 8, MUTED);
         credit.setPadding(0, px(4), 0, 0);
         right.addView(credit);
 
@@ -145,15 +159,15 @@ public class SettingsActivity extends Activity {
     }
 
     private void updateCount() {
-        Prefs.Snapshot s = new Prefs.Snapshot(prefs);
-        count.setText(getString(Prefs.CATEGORY_NAMES[s.category]) + " · "
-                + getString(R.string.works_count, Works.in(this, s.categoryId()).size()) + " · The Met");
+        Category c = SettingsStore.read(this).category;
+        count.setText(getString(Names.category(c)) + " · "
+                + getString(R.string.works_count, MetCatalogue.get(this).in(c).size()) + " · The Met");
     }
 
     private void refreshStatus(boolean withCommand) {
-        Boolean on = Activation.isActive(this);
+        Boolean on = ScreensaverActivation.isActive(this);
         String line = on == null ? "" : getString(on ? R.string.saver_is_on : R.string.saver_is_off);
-        if (on == null || !on) line += (line.isEmpty() ? "" : "\n") + getString(R.string.act_computer, Activation.adbCommand(this));
+        if (on == null || !on) line += (line.isEmpty() ? "" : "\n") + getString(R.string.act_computer, ScreensaverActivation.adbCommand(this));
         if (withCommand || on != null) status.setText(line);
     }
 
@@ -167,24 +181,29 @@ public class SettingsActivity extends Activity {
         l.addView(new View(this), new LinearLayout.LayoutParams(1, px(h)));
     }
 
-    private String[] names(int[] ids) {
-        String[] out = new String[ids.length];
-        for (int i = 0; i < ids.length; i++) out[i] = getString(ids[i]);
+    private <T> String[] names(T[] values, java.util.function.ToIntFunction<T> name) {
+        String[] out = new String[values.length];
+        for (int i = 0; i < values.length; i++) out[i] = getString(name.applyAsInt(values[i]));
         return out;
+    }
+
+    private static int indexOf(int[] list, int v) {
+        for (int i = 0; i < list.length; i++) if (list[i] == v) return i;
+        return 0;
     }
 
     private TextView text(String s, android.graphics.Typeface t, float sp, int color) {
         TextView v = new TextView(this);
         v.setText(s);
         v.setTypeface(t);
-        v.setTextSize(TypedValue.COMPLEX_UNIT_DIP, sp * 1.5f);
+        v.setTextSize(TypedValue.COMPLEX_UNIT_DIP, sp * 1.2f);
         v.setTextColor(color);
         v.setIncludeFontPadding(false);
         return v;
     }
 
-    interface Getter { int get(); }
-    interface Setter { void set(int i); }
+    interface Getter { int get(Settings s); }
+    interface Setter { Settings set(Settings s, int i); }
 
     /** The double rule under the masthead: 2 px, a gap, 1 px. */
     private final class DoubleRule extends View {
@@ -231,7 +250,7 @@ public class SettingsActivity extends Activity {
             setGravity(Gravity.CENTER_VERTICAL);
             setFocusable(true);
             setClickable(true);
-            setPadding(px(12), px(7), px(12), px(7));
+            setPadding(px(12), px(6), px(12), px(6));
             label = text(getString(labelId).toUpperCase(), Fonts.textBold, 10, INK);
             label.setLetterSpacing(0.16f);
             addView(label, new LayoutParams(0, -2, 1));
@@ -260,12 +279,13 @@ public class SettingsActivity extends Activity {
             label.setTextColor(fg);
             value.setTextColor(fg);
             if (options != null) {
-                String v = options[Math.max(0, Math.min(options.length - 1, getter.get()))];
+                int at = getter.get(SettingsStore.read(getContext()));
+                String v = options[Math.max(0, Math.min(options.length - 1, at))];
                 value.setText(f ? "‹  " + v + "  ›" : v);
                 if (swatches != null) {
-                    swatch.setColor(swatches[getter.get()]);
+                    swatch.setColor(swatches[at]);
                     swatch.setStroke(Math.max(1, px(1)), f ? PAPER : 0xFFA9A294);
-                    value.setCompoundDrawablesRelative(swatch, null, null, null);
+                    value.setCompoundDrawablesRelativeWithIntrinsicBounds(swatch, null, null, null);
                     value.setCompoundDrawablePadding(px(8));
                 }
             } else {
@@ -279,7 +299,8 @@ public class SettingsActivity extends Activity {
                 return;
             }
             int n = options.length;
-            setter.set(((getter.get() + step) % n + n) % n);
+            Settings now = SettingsStore.read(getContext());
+            SettingsStore.save(getContext(), setter.set(now, ((getter.get(now) + step) % n + n) % n));
             refresh();
             changed();
         }

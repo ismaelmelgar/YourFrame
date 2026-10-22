@@ -1,0 +1,36 @@
+YourFrame
+=========
+
+Third-party material in this app:
+
+Free My TV
+  Parts of YourFrame are derived from Free My TV (https://github.com/simbasjungles/free-my-tv):
+  build.sh, Adb.java (the client for the TV's own ADB), and the screensaver structure in ArtDream.java and
+  ArtView.java (DreamView/Screensaver: slides, worker with a generation counter, crossfade, bitmap release, and the
+  decode-at-screen-size approach of Backdrop used in Images.java). Those files say so in a header comment.
+
+  MIT License
+
+  Copyright (c) 2026 Free My TV contributors
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+  documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies or substantial portions of
+  the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+  WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+  COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+  OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Fonts (app/assets/fonts, licences alongside)
+  Playfair Display, Copyright 2017 The Playfair Display Project Authors, SIL Open Font License 1.1.
+  Libre Caslon Text, Copyright 2018 The Libre Caslon Text Project Authors, SIL Open Font License 1.1.
+
+Images and data
+  The Metropolitan Museum of Art Open Access: public-domain images and data, CC0
+  (https://www.metmuseum.org/about-the-met/policies-and-documents/open-access). Images are downloaded at run time;
+  app/assets/artworks.json holds only the works' data. YourFrame is not affiliated with or endorsed by The Met.

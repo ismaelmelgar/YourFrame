@@ -1,4 +1,4 @@
-package io.yourframe.tv;
+package io.yourframe.tv.infrastructure;
 
 // From Free My TV (MIT License, Copyright (c) 2026 Free My TV contributors,
 // https://github.com/simbasjungles/free-my-tv), with its messages in English (Activation translates the usual ones). See NOTICE.
@@ -40,7 +40,7 @@ import javax.crypto.Cipher;
  * commands (nothing from outside).
  * Protocol: https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/protocol.txt
  */
-final class Adb implements Closeable {
+public final class Adb implements Closeable {
     private static final int CNXN = 0x4e584e43, AUTH = 0x48545541, OPEN = 0x4e45504f, OKAY = 0x59414b4f,
             CLSE = 0x45534c43, WRTE = 0x45545257, STLS = 0x534c5453;
     private static final int VERSION = 0x01000001, MAX_DATA = 256 * 1024;
@@ -49,7 +49,7 @@ final class Adb implements Closeable {
     private static final byte[] SHA1_PREFIX = {0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14};
 
     /** Notified when the TV is showing the permission prompt (so the screen can explain what to do). */
-    interface Approval { void waiting(); }
+    public interface Approval { void waiting(); }
 
     private static final class Message {
         int command, arg0, arg1;
@@ -68,7 +68,7 @@ final class Adb implements Closeable {
     }
 
     /** Connects and authenticates. If the TV doesn't know our key yet, waits up to `approvalMs` for you to accept. */
-    static Adb connect(Context c, int approvalMs, Approval approval) throws IOException {
+    public static Adb connect(Context c, int approvalMs, Approval approval) throws IOException {
         KeyPair keys = keys(c);
         Socket s = new Socket();
         try {
@@ -121,7 +121,7 @@ final class Adb implements Closeable {
     }
 
     /** Runs a command in the TV's shell and returns its output (stdout and stderr together). */
-    String shell(String command) throws IOException {
+    public String shell(String command) throws IOException {
         int local = nextLocalId++;
         send(OPEN, local, 0, ("shell:" + command + "\0").getBytes(StandardCharsets.UTF_8));
         int remote = 0;
@@ -188,7 +188,7 @@ final class Adb implements Closeable {
                             factory.generatePrivate(new PKCS8EncodedKeySpec(readFile(privateFile))));
                 } catch (GeneralSecurityException | IOException e) {
                     // Corrupted file (the power went out mid-write): new key; the TV asks again.
-                    android.util.Log.w(Works.TAG, "ADB key unreadable, generating a new one");
+                    android.util.Log.w(MetCatalogue.TAG, "ADB key unreadable, generating a new one");
                 }
             }
             KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");

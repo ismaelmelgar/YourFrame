@@ -1,4 +1,4 @@
-package io.yourframe.tv;
+package io.yourframe.tv.ui;
 
 import android.content.Context;
 import android.content.res.AssetManager;
@@ -9,13 +9,13 @@ import android.graphics.Typeface;
  * titles and the clock, Libre Caslon Text for the text. Both are variable fonts; each style is one weight of them.
  * Without the files (never in a real build), the system serif.
  */
-final class Fonts {
+public final class Fonts {
     private Fonts() {}
 
-    static Typeface text, textBold, textItalic, display, displayItalic, displayBold;
+    public static Typeface text, textBold, textItalic, display, displayItalic, displayBold;
     private static boolean loaded;
 
-    static synchronized void init(Context c) {
+    public static synchronized void init(Context c) {
         if (loaded) return;
         loaded = true;
         AssetManager a = c.getAssets();

@@ -1,4 +1,4 @@
-package io.yourframe.tv;
+package io.yourframe.tv.infrastructure;
 
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
@@ -10,6 +10,9 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 
+import io.yourframe.tv.ArtDream;
+import io.yourframe.tv.R;
+
 import java.io.IOException;
 
 /**
@@ -18,21 +21,21 @@ import java.io.IOException;
  * `settings put secure screensaver_components <this app>/.ArtDream`. The TV asks once "Allow USB debugging?".
  * The same command from a computer is shown as the fallback.
  */
-final class Activation {
-    private Activation() {}
+public final class ScreensaverActivation {
+    private ScreensaverActivation() {}
 
-    interface Listener { void status(String text, boolean done); }
+    public interface Listener { void status(String text, boolean done); }
 
-    static String component(Context c) {
+    public static String component(Context c) {
         return new ComponentName(c, ArtDream.class).flattenToShortString();
     }
 
-    static String adbCommand(Context c) {
+    public static String adbCommand(Context c) {
         return "adb shell settings put secure screensaver_components " + component(c);
     }
 
     /** Whether the TV's screensaver is YourFrame now (null when the TV doesn't let apps read it). */
-    static Boolean isActive(Context c) {
+    public static Boolean isActive(Context c) {
         try {
             String v = Settings.Secure.getString(c.getContentResolver(), "screensaver_components");
             if (v == null) return null;
@@ -44,7 +47,7 @@ final class Activation {
         }
     }
 
-    static boolean isGoogleTv(Context c) {
+    public static boolean isGoogleTv(Context c) {
         PackageManager pm = c.getPackageManager();
         if (pm.hasSystemFeature("com.google.android.feature.GOOGLE_EXPERIENCE")
                 && pm.hasSystemFeature("com.google.android.tv.installed")) return true;
@@ -56,7 +59,7 @@ final class Activation {
         }
     }
 
-    static void activate(final Context c, final Listener l) {
+    public static void activate(final Context c, final Listener l) {
         if (!isGoogleTv(c)) {
             try {
                 c.startActivity(new Intent(Settings.ACTION_DREAM_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -81,7 +84,7 @@ final class Activation {
                 result = ok ? app.getString(R.string.act_done)
                         : app.getString(R.string.act_failed, now) + "\n" + app.getString(R.string.act_computer, adbCommand(app));
             } catch (IOException | RuntimeException e) {
-                Log.w(Works.TAG, "activation: " + e.getMessage());
+                Log.w(MetCatalogue.TAG, "activation: " + e.getMessage());
                 String m = String.valueOf(e.getMessage());
                 String why = m.contains("port 5555") ? app.getString(R.string.act_debug_off)
                         : m.contains("accepted") || m.contains("rejected") ? app.getString(R.string.act_rejected)

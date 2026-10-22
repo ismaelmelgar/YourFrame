@@ -5,3 +5,6 @@ out/
 *.apk
 !docs/**
 .DS_Store
+core.*.dmp
+javacore.*.txt
+Snap.*.trc

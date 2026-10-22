@@ -1,4 +1,7 @@
-package io.yourframe.tv;
+package io.yourframe.tv.infrastructure;
+
+// The decode-at-screen-size approach (inSampleSize, then halving steps) comes from Free My TV's Backdrop
+// (MIT License, Copyright (c) 2026 Free My TV contributors). See NOTICE.
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -6,6 +9,10 @@ import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
 import android.graphics.Rect;
 import android.util.Log;
+
+import io.yourframe.tv.application.NextArtwork;
+import io.yourframe.tv.domain.Artwork;
+import io.yourframe.tv.domain.Layout;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -20,30 +27,50 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * The works' images: the ORIGINAL downloaded in the background, decoded already cropped (the photo's border off) and
+ * The works' pictures for one screen size: the ORIGINAL downloaded in the background, decoded already cropped (the photo's border off) and
  * reduced to what the screen can show (inSampleSize, then halving steps, as Free My TV's Backdrop does), and the last
  * 12 kept on disk as JPEGs so the screensaver still works without internet. Runs on a worker thread only.
  */
-final class Images {
-    private Images() {}
+public final class MetPictures implements NextArtwork.Pictures<Bitmap> {
+    private final Context context;
+    private final int w, h;
+
+    /** For a screen of w × h. */
+    public MetPictures(Context c, int w, int h) {
+        context = c.getApplicationContext();
+        this.w = w;
+        this.h = h;
+    }
+
+    @Override public List<Integer> kept() {
+        return cachedIds(context);
+    }
+
+    @Override public Bitmap load(Artwork a, boolean online) throws IOException {
+        try {
+            return load(context, a, w, h, online);
+        } catch (OutOfMemoryError e) {
+            throw new IOException("out of memory decoding " + a.id);
+        }
+    }
 
     private static final int KEEP = 12;
     private static final long MAX_BYTES = 90L * 1024 * 1024;   // some originals are huge scans: then web-large
     private static final Object LOCK = new Object();
 
-    static File dir(Context c) {
+    private static File dir(Context c) {
         File d = new File(c.getFilesDir(), "art");
         if (!d.isDirectory()) d.mkdirs();
         return d;
     }
 
-    static File cached(Context c, int id) {
+    private static File cached(Context c, int id) {
         File f = new File(dir(c), id + ".jpg");
         return f.isFile() && f.length() > 0 ? f : null;
     }
 
     /** Ids of the works on disk, the most recently used first. */
-    static List<Integer> cachedIds(Context c) {
+    private static List<Integer> cachedIds(Context c) {
         File[] files = dir(c).listFiles((d, n) -> n.endsWith(".jpg"));
         List<Integer> out = new ArrayList<>();
         if (files == null) return out;
@@ -57,17 +84,11 @@ final class Images {
         return out;
     }
 
-    /** The size a work is kept at for a screen of w × h: wide enough to cover it at full bleed, never upscaled. */
-    static int[] target(float ratio, int w, int h) {
-        int tw = Math.round(Math.max(w, h * ratio));
-        return new int[] {tw, Math.round(tw / ratio)};
-    }
-
     /**
      * The work's image at most w × h-screen size: from disk if it's there, else downloaded (when `online`). Throws when
      * neither works.
      */
-    static Bitmap load(Context c, Works.Work work, int w, int h, boolean online) throws IOException {
+    private static Bitmap load(Context c, Artwork work, int w, int h, boolean online) throws IOException {
         File f = cached(c, work.id);
         if (f != null) {
             Bitmap b = decodeCached(f, w, h);
@@ -82,13 +103,13 @@ final class Images {
         boolean original = true;
         try {
             try {
-                download(work.original, tmp);
+                download(work.originalUrl, tmp);
             } catch (IOException e) {
-                Log.w(Works.TAG, "original of " + work.id + ": " + e.getMessage() + "; trying web-large");
+                Log.w(MetCatalogue.TAG, "original of " + work.id + ": " + e.getMessage() + "; trying web-large");
                 original = false;
-                download(work.small, tmp);
+                download(work.smallUrl, tmp);
             }
-            Bitmap b = decode(tmp, work.crop, work.ratio, w, h);
+            Bitmap b = decode(tmp, work, w, h);
             if (original) save(c, work.id, b);
             return b;
         } finally {
@@ -123,19 +144,17 @@ final class Images {
     }
 
     /** Only the cropped region, decoded at the smallest power-of-two reduction still larger than the target. */
-    static Bitmap decode(File f, float[] crop, float ratio, int w, int h) throws IOException {
+    private static Bitmap decode(File f, Artwork work, int w, int h) throws IOException {
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
         BitmapFactory.decodeFile(f.getPath(), bounds);
         int sw = bounds.outWidth, sh = bounds.outHeight;
         if (sw <= 0 || sh <= 0) throw new IOException("unreadable image");
-        Rect r = new Rect(Math.round(crop[0] * sw), Math.round(crop[1] * sh), Math.round(crop[2] * sw), Math.round(crop[3] * sh));
-        if (r.width() < 16 || r.height() < 16) r.set(0, 0, sw, sh);
-        float real = (float) r.width() / r.height();
-        int[] t = target(real, w, h);
+        int[] k = work.cropIn(sw, sh);
+        Rect r = new Rect(k[0], k[1], k[2], k[3]);
+        int[] t = Layout.keptSize((float) r.width() / r.height(), w, h);
         BitmapFactory.Options opts = new BitmapFactory.Options();
-        opts.inSampleSize = 1;
-        while (r.width() / (opts.inSampleSize * 2) >= t[0] && r.height() / (opts.inSampleSize * 2) >= t[1]) opts.inSampleSize *= 2;
+        opts.inSampleSize = Layout.sampleSize(r.width(), r.height(), t[0], t[1]);
         Bitmap src = null;
         try {
             BitmapRegionDecoder rd = BitmapRegionDecoder.newInstance(f.getPath(), false);
@@ -145,7 +164,7 @@ final class Images {
                 rd.recycle();
             }
         } catch (IOException | RuntimeException e) {
-            Log.w(Works.TAG, "region decoder: " + e.getMessage());
+            Log.w(MetCatalogue.TAG, "region decoder: " + e.getMessage());
         }
         if (src == null) {
             Bitmap whole = BitmapFactory.decodeFile(f.getPath(), opts);
@@ -161,12 +180,12 @@ final class Images {
     private static Bitmap decodeCached(File f, int w, int h) {
         Bitmap b = BitmapFactory.decodeFile(f.getPath());
         if (b == null) return null;
-        int[] t = target((float) b.getWidth() / b.getHeight(), w, h);
+        int[] t = Layout.keptSize((float) b.getWidth() / b.getHeight(), w, h);
         return shrink(b, t[0], t[1]);
     }
 
     /** Down to tw × th, halving while it can (a true average, no aliasing); never scaled up. */
-    static Bitmap shrink(Bitmap b, int tw, int th) {
+    private static Bitmap shrink(Bitmap b, int tw, int th) {
         if (b.getWidth() <= tw || b.getHeight() <= th) return b;
         while (b.getWidth() / 2 >= tw && b.getHeight() / 2 >= th) {
             Bitmap half = Bitmap.createScaledBitmap(b, b.getWidth() / 2, b.getHeight() / 2, true);
@@ -194,7 +213,7 @@ final class Images {
     }
 
     /** Keeps the 12 most recently used works on disk (and whatever is on screen now). */
-    static void prune(Context c, Collection<Integer> keep) {
+    public static void prune(Context c, Collection<Integer> keep) {
         synchronized (LOCK) {
             List<Integer> ids = cachedIds(c);
             int kept = 0;

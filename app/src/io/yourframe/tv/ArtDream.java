@@ -4,6 +4,8 @@ package io.yourframe.tv;
 
 import android.service.dreams.DreamService;
 
+import io.yourframe.tv.ui.ArtView;
+
 /**
  * The YourFrame screensaver. The system still decides when it starts and when the TV turns off; any key exits.
  * It runs in the app's default process: on Android 11 the system's DreamActivity runs there and only works with a

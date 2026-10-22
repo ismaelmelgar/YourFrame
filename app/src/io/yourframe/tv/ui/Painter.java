@@ -1,4 +1,4 @@
-package io.yourframe.tv;
+package io.yourframe.tv.ui;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -7,6 +7,11 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
+
+import io.yourframe.tv.domain.Box;
+import io.yourframe.tv.domain.Frame;
+import io.yourframe.tv.domain.Layout;
+import io.yourframe.tv.domain.Settings;
 
 import java.util.Random;
 
@@ -18,74 +23,27 @@ import java.util.Random;
  * draws at 60 fps. The caption and the clock are drawn on top by ArtView (they fade and tick).
  * All sizes are the prototype's, at 1920 × 1080, times k (the screen's width / 1920).
  */
-final class Composer {
-    private Composer() {}
-
-    /** Frame width at 1920 px, per Prefs.FRAMES: full bleed, mat only, black, white, oak, walnut, gold. */
-    static final int[] FRAME_W = {0, 0, 34, 34, 54, 54, 64};
-
-    /** Where everything goes, for a screen, the settings and a work's aspect ratio. */
-    static final class Layout {
-        final float k;
-        final int w, h;
-        final RectF inner = new RectF(), window = new RectF();
-        float captionTop, mastLeft, mastRight, mastTop;
-        final boolean bleed;
-
-        Layout(int w, int h, Prefs.Snapshot s, float ratio) {
-            this.w = w;
-            this.h = h;
-            k = w / 1920f;
-            bleed = s.bleed();
-            float fw = FRAME_W[s.frame] * k;
-            inner.set(fw, fw, w - fw, h - fw);
-            if (bleed) {
-                float ww = w, wh = ww / ratio;
-                if (wh < h) {
-                    wh = h;
-                    ww = wh * ratio;
-                }
-                window.set((w - ww) / 2, (h - wh) / 2, (w + ww) / 2, (h + wh) / 2);
-                return;
-            }
-            float margin = Math.round(inner.height() * 0.075f);
-            float head = s.clock ? 92 * k : 0, capH = s.info ? 132 * k : 0;
-            float maxW = inner.width() - 2 * margin, maxH = inner.height() - 2 * margin - capH - head;
-            float ww = maxW, wh = ww / ratio;
-            if (wh > maxH) {
-                wh = maxH;
-                ww = wh * ratio;
-            }
-            ww = Math.round(ww);
-            wh = Math.round(wh);
-            float wx = Math.round(inner.left + (inner.width() - ww) / 2);
-            float wy = Math.round(inner.top + margin + head + (maxH - wh) / 2);
-            window.set(wx, wy, wx + ww, wy + wh);
-            captionTop = wy + wh + 30 * k;
-            mastLeft = inner.left + Math.round(margin * 1.2f);
-            mastRight = inner.right - Math.round(margin * 1.2f);
-            mastTop = inner.top + Math.round(margin * 0.55f);
-        }
-    }
+final class Painter {
+    private Painter() {}
 
     /** The work on its mat, in its frame, as one bitmap of w × h (art null: the empty mat, for the placeholder). */
-    static Bitmap compose(Bitmap art, Layout l, Prefs.Snapshot s) {
+    static Bitmap paint(Bitmap art, Layout l, Settings s) {
         Bitmap out = Bitmap.createBitmap(l.w, l.h, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(out);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
         float k = l.k;
         if (l.bleed && art != null) {
             c.drawColor(0xFF000000);
-            c.drawBitmap(art, null, l.window, p);
+            c.drawBitmap(art, null, rect(l.window), p);
             return out;
         }
-        c.drawColor(s.matColor());
+        c.drawColor(s.mat.color);
         if (art != null) {
-            RectF win = l.window;
+            RectF win = rect(l.window);
             // The mat's cut edge: a thin light line round the window, and a faint wider one (only the thin one, dimmer,
             // on the dark mats).
             p.setStyle(Paint.Style.FILL);
-            if (s.darkMat()) {
+            if (s.mat.dark()) {
                 p.setColor(0x1FFFFFFF);
                 c.drawRect(win.left - k, win.top - k, win.right + k, win.bottom + k, p);
             } else {
@@ -153,32 +111,34 @@ final class Composer {
 
     // MARK: - Frames, drawn at the screen's edge like The Frame's snap-on bezels
 
-    private static final int BLACK = 2, WHITE = 3, OAK = 4, WALNUT = 5, GOLD = 6;
+    private static RectF rect(Box b) {
+        return new RectF(b.left, b.top, b.right, b.bottom);
+    }
 
-    private static void frame(Canvas c, Layout l, int frame) {
-        float fw = FRAME_W[frame] * l.k, k = l.k;
+    private static void frame(Canvas c, Layout l, Frame frame) {
+        float fw = frame.width * l.k, k = l.k;
         if (fw <= 0) return;
         int w = l.w, h = l.h;
-        RectF in = l.inner;
+        RectF in = rect(l.inner);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
 
         // 1. The frame's shadow on the mat (inset 0 Ypx Bpx rgba(0,0,0,A)): strong at the top, soft at the sides.
-        float oy = (frame == GOLD ? 10 : frame >= OAK ? 8 : 6) * k;
-        float blur = (frame == GOLD ? 22 : frame >= OAK ? 18 : 14) * k;
-        float a = frame == BLACK ? 0.5f : frame == WHITE ? 0.18f : frame == OAK ? 0.35f : frame == WALNUT ? 0.45f : 0.4f;
+        float oy = (frame == Frame.GOLD ? 10 : frame.ordinal() >= Frame.OAK.ordinal() ? 8 : 6) * k;
+        float blur = (frame == Frame.GOLD ? 22 : frame.ordinal() >= Frame.OAK.ordinal() ? 18 : 14) * k;
+        float a = frame == Frame.BLACK ? 0.5f : frame == Frame.WHITE ? 0.18f : frame == Frame.OAK ? 0.35f : frame == Frame.WALNUT ? 0.45f : 0.4f;
         float sigma = blur / 2;
         band(c, p, in.left, in.top, in.right, in.top + oy + 3 * sigma, true, a, oy, sigma);
         band(c, p, in.left, in.top, in.left + 3 * sigma, in.bottom, false, a, 0, sigma);
         mirrorBand(c, p, in, a, sigma);
         // 2. The lines inside the frame's lip (inset 0 0 0 Npx), the wider one first.
-        if (frame == GOLD) {
+        if (frame == Frame.GOLD) {
             lip(c, p, in, 9 * k, 0x8CF0D78C);
             lip(c, p, in, 4 * k, 0xFF5C4416);
-        } else if (frame == OAK) {
+        } else if (frame == Frame.OAK) {
             lip(c, p, in, 3 * k, 0x8C503719);
-        } else if (frame == WALNUT) {
+        } else if (frame == Frame.WALNUT) {
             lip(c, p, in, 3 * k, 0xB3140A04);
-        } else if (frame == BLACK) {
+        } else if (frame == Frame.BLACK) {
             lip(c, p, in, 2 * k, 0xFF2A2A2A);
         } else {
             lip(c, p, in, Math.max(1, k), 0xFFD9D6CE);
@@ -204,31 +164,31 @@ final class Composer {
         // Each side lit from above, like a real moulding: top lighter, bottom darker, mitred at the corners.
         Path top = side(0, 0, w, 0, w - fw, fw, fw, fw), bottom = side(0, h, w, h, w - fw, h - fw, fw, h - fw);
         Path left = side(0, 0, 0, h, fw, h - fw, fw, fw), right = side(w, 0, w, h, w - fw, h - fw, w - fw, fw);
-        boolean light = frame == WHITE;
+        boolean light = frame == Frame.WHITE;
         shade(c, p, top, light ? 0x14FFFFFF : 0x1AFFFFFF);
         shade(c, p, left, light ? 0x08FFFFFF : 0x0DFFFFFF);
         shade(c, p, right, light ? 0x0A000000 : 0x14000000);
         shade(c, p, bottom, light ? 0x1A000000 : 0x2B000000);
 
-        if (frame == OAK || frame == WALNUT) {
-            grain(c, top, 0, fw, w, true, frame == OAK ? 0x000000 : 0x000000, frame == OAK ? 0.09f : 0.16f, 11, k);
-            grain(c, bottom, h - fw, h, w, true, 0, frame == OAK ? 0.09f : 0.16f, 12, k);
-            grain(c, left, 0, fw, h, false, 0, frame == OAK ? 0.09f : 0.16f, 13, k);
-            grain(c, right, w - fw, w, h, false, 0, frame == OAK ? 0.09f : 0.16f, 14, k);
+        if (frame == Frame.OAK || frame == Frame.WALNUT) {
+            grain(c, top, 0, fw, w, true, 0, frame == Frame.OAK ? 0.09f : 0.16f, 11, k);
+            grain(c, bottom, h - fw, h, w, true, 0, frame == Frame.OAK ? 0.09f : 0.16f, 12, k);
+            grain(c, left, 0, fw, h, false, 0, frame == Frame.OAK ? 0.09f : 0.16f, 13, k);
+            grain(c, right, w - fw, w, h, false, 0, frame == Frame.OAK ? 0.09f : 0.16f, 14, k);
         }
         // Mouldings: a ridge (light over dark) part-way across, a light inner lip, and the mitre joints.
-        if (frame >= OAK) {
-            float ridge = fw * (frame == GOLD ? 0.32f : 0.38f);
-            ring(c, p, ridge, w, h, frame == GOLD ? 0x80F8E7AE : 0x30FFFFFF, Math.max(1, 1.5f * k));
-            ring(c, p, ridge + 2 * k, w, h, frame == GOLD ? 0x665C4416 : 0x33000000, Math.max(1, 1.5f * k));
-            if (frame == GOLD) {
+        if (frame.ordinal() >= Frame.OAK.ordinal()) {
+            float ridge = fw * (frame == Frame.GOLD ? 0.32f : 0.38f);
+            ring(c, p, ridge, w, h, frame == Frame.GOLD ? 0x80F8E7AE : 0x30FFFFFF, Math.max(1, 1.5f * k));
+            ring(c, p, ridge + 2 * k, w, h, frame == Frame.GOLD ? 0x665C4416 : 0x33000000, Math.max(1, 1.5f * k));
+            if (frame == Frame.GOLD) {
                 ring(c, p, fw * 0.7f, w, h, 0x59FFF2C4, Math.max(1, k));
                 ring(c, p, fw * 0.7f + 2 * k, w, h, 0x4D4A3510, Math.max(1, k));
             }
         }
         ring(c, p, fw - Math.max(1, k), w, h, light ? 0x18000000 : 0x38FFFFFF, Math.max(1, k));
         ring(c, p, 0.5f, w, h, light ? 0x22000000 : 0x55000000, Math.max(1, k));
-        if (frame != WHITE && frame != BLACK) {
+        if (frame != Frame.WHITE && frame != Frame.BLACK) {
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(Math.max(1, k));
             p.setColor(0x26000000);

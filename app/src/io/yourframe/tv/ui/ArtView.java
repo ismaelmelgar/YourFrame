@@ -1,4 +1,4 @@
-package io.yourframe.tv;
+package io.yourframe.tv.ui;
 
 // Derived from Free My TV's DreamView (MIT License, Copyright (c) 2026 Free My TV contributors,
 // https://github.com/simbasjungles/free-my-tv): the prepared/current/incoming slides, the worker thread with a
@@ -20,17 +20,25 @@ import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.View;
 
-import java.io.IOException;
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
+import io.yourframe.tv.R;
+import io.yourframe.tv.application.NextArtwork;
+import io.yourframe.tv.domain.Artwork;
+import io.yourframe.tv.domain.Exhibition;
+import io.yourframe.tv.domain.Layout;
+import io.yourframe.tv.domain.Night;
+import io.yourframe.tv.domain.Rotation;
+import io.yourframe.tv.domain.Settings;
+import io.yourframe.tv.infrastructure.MetCatalogue;
+import io.yourframe.tv.infrastructure.MetPictures;
+import io.yourframe.tv.infrastructure.SettingsStore;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,21 +49,21 @@ import java.util.concurrent.Executors;
  * the mat; the caption under the work, which leaves 10 s after the work arrives; dimmer at night.
  *
  * Cost per frame: one or two screen-sized bitmaps (everything static is painted into them in the background by
- * Composer) and a few lines of text. Nothing is allocated in onDraw. Frames are drawn at 60 fps only while something
+ * Painter) and a few lines of text. Nothing is allocated in onDraw. Frames are drawn at 60 fps only while something
  * moves (a crossfade, the caption leaving); otherwise the view sleeps until the next minute or the next change.
  * No RenderNode, layers or shaders on screen, so Android 8 to 11 TVs (Free My TV's LEGACY GPUs) take the same path.
  */
-final class ArtView extends View {
-    private static final long FADE_MS = 2000, FIRST_MS = 1600, INFO_MS = 10_000, INFO_FADE_MS = 1200, RETRY_MS = 30_000;
+public final class ArtView extends View {
+    private static final long RETRY_MS = 30_000;
     /** Night: as the prototype's black veil at 42%, applied as a colour filter (no extra full-screen layer). */
-    private static final float NIGHT = 0.58f;
+    private static final float NIGHT = Night.DIM;
 
     /** One work on screen: its painted bitmap and its caption, measured once. */
     private static final class Slide {
-        Works.Work work;          // null: the placeholder (offline or loading)
+        Artwork work;             // null: the placeholder (offline or loading)
         Bitmap image;             // GPU memory
         Bitmap art;               // the work's pixels, kept only by the settings' preview (to repaint on changes)
-        Composer.Layout layout;
+        Layout layout;
         String who = "", what = "", meta = "", src = "";
         float whoW, whatW, metaW, srcW;
         boolean placeholder, loadingText, immediate;
@@ -65,11 +73,13 @@ final class ArtView extends View {
     private final boolean preview;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private ExecutorService worker = Executors.newSingleThreadExecutor();
-    private final Set<Integer> failed = new HashSet<>();
     private final Paint slidePaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
     private final Paint black = new Paint();
     private final LightingColorFilter nightFilter;
-    private Prefs.Snapshot prefs;
+    private Settings settings;
+    private final Exhibition exhibition;
+    private NextArtwork<Bitmap> next;
+    private int nextW, nextH;
     private Slide current, incoming, prepared;
     private boolean running, loading, night, everShown;
     private int generation, w, h;
@@ -97,36 +107,39 @@ final class ArtView extends View {
     private final Runnable wake = this::invalidate;
     private final Runnable retry = this::prepareNext;
 
-    ArtView(Context c, boolean preview) {
+    public ArtView(Context c, boolean preview) {
         super(c);
         this.preview = preview;
         Fonts.init(c);
         int m = Math.round(255 * NIGHT);
         nightFilter = new LightingColorFilter(0xFF000000 | (m << 16) | (m << 8) | m, 0);
         black.setColor(0xFF000000);
-        prefs = Prefs.read(c);
+        settings = SettingsStore.read(c);
+        exhibition = SettingsStore.exhibition(c);
     }
 
     // MARK: - Lifecycle
 
-    void start() {
+    public void start() {
         if (running) return;
         running = true;
         if (worker.isShutdown()) worker = Executors.newSingleThreadExecutor();
-        failed.clear();
-        prefs = Prefs.read(getContext());
+        if (next != null) next.failed.clear();
+        settings = SettingsStore.read(getContext());
         updateClock();
         handler.post(minuteTick);
         prepareNext();
         invalidate();
     }
 
-    void stop() {
+    public void stop() {
         if (!running) return;
         running = false;
         generation++;
         loading = false;
-        handler.removeCallbacksAndMessages(null);
+        handler.removeCallbacks(minuteTick);
+        handler.removeCallbacks(wake);
+        handler.removeCallbacks(retry);
         final List<Bitmap> gone = new ArrayList<>();
         for (Slide s : new Slide[] {current, incoming, prepared}) {
             if (s == null) continue;
@@ -146,13 +159,14 @@ final class ArtView extends View {
     }
 
     /** The settings changed (the preview): repaint the work on screen with the new look, or change category. */
-    void settingsChanged() {
-        Prefs.Snapshot old = prefs;
-        prefs = Prefs.read(getContext());
+    public void settingsChanged() {
+        Settings old = settings;
+        settings = SettingsStore.read(getContext());
         updateClock();
         if (!running) return;
-        boolean category = old.category != prefs.category;
-        if (category || !prefs.sameLook(old)) {
+        Settings.Change change = settings.comparedWith(old);
+        boolean category = change == Settings.Change.CATEGORY;
+        if (category || change == Settings.Change.LOOK) {
             generation++;           // whatever was loading was for the old settings
             loading = false;
             if (prepared != null) release(prepared);
@@ -175,131 +189,92 @@ final class ArtView extends View {
         if (!running || loading || prepared != null || w == 0) return;
         loading = true;
         final int gen = generation, sw = w, sh = h;
-        final Prefs.Snapshot s = prefs;
+        final Settings s = settings;
         final boolean first = !everShown;
-        final Set<Integer> skip = new HashSet<>(failed);
-        final Context ctx = getContext().getApplicationContext();
-        for (Slide on : new Slide[] {current, incoming}) if (on != null && on.work != null) skip.add(on.work.id);
+        final Set<Integer> onScreen = new HashSet<>();
+        for (Slide on : new Slide[] {current, incoming}) if (on != null && on.work != null) onScreen.add(on.work.id);
+        final NextArtwork<Bitmap> next = nextArtwork(sw, sh);
         worker.execute(() -> {
-            Works.Work work = null;
-            Bitmap art = null;
-            boolean offline = false;
-            List<Integer> newFailures = new ArrayList<>();
-            // The very first work comes from disk when it can, so the screen isn't empty while an original downloads.
-            if (first) {
-                Object[] r = fromDisk(ctx, s.categoryId(), skip, sw, sh, true);
-                if (r != null) {
-                    work = (Works.Work) r[0];
-                    art = (Bitmap) r[1];
-                } else {
-                    postPlaceholder(gen, s, sw, sh, true);
-                }
-            }
-            for (int tries = 0; art == null && tries < 4; tries++) {
-                Works.Work pick = Works.pick(ctx, s.categoryId(), skip);
-                if (pick == null) break;
-                try {
-                    art = Images.load(ctx, pick, sw, sh, true);
-                    work = pick;
-                } catch (IOException | RuntimeException | OutOfMemoryError e) {
-                    Log.w(Works.TAG, "work " + pick.id + ": " + e);
-                    skip.add(pick.id);
-                    if (e instanceof UnknownHostException || e instanceof ConnectException
-                            || e instanceof SocketTimeoutException) {
-                        offline = true;
-                        break;
-                    }
-                    newFailures.add(pick.id);
-                }
-            }
-            if (art == null) {
-                // Offline: a work kept on disk, of this category if there is one.
-                Object[] r = fromDisk(ctx, s.categoryId(), skip, sw, sh, true);
-                if (r == null) r = fromDisk(ctx, s.categoryId(), skip, sw, sh, false);
-                if (r != null) {
-                    work = (Works.Work) r[0];
-                    art = (Bitmap) r[1];
-                }
-            }
+            // The first work of a session: one kept on the TV if there is one, else "loading" while it downloads.
+            NextArtwork.Found<Bitmap> found = first ? next.kept(s.category, onScreen) : null;
+            if (first && found == null) postPlaceholder(gen, s, sw, sh, true);
+            if (found == null) found = next.find(s.category, onScreen);
             Slide slide = null;
-            try {
-                slide = art != null ? build(work, art, s, sw, sh) : null;
-            } catch (RuntimeException | OutOfMemoryError e) {
-                Log.w(Works.TAG, "compose: " + e);
-                if (art != null) art.recycle();
+            if (found != null) {
+                try {
+                    slide = build(found.artwork, found.picture, s, sw, sh);
+                } catch (RuntimeException | OutOfMemoryError e) {
+                    Log.w(MetCatalogue.TAG, "paint: " + e);
+                    found.picture.recycle();
+                }
+                if (found.kept) Log.i(MetCatalogue.TAG, "showing a work kept on the TV: " + found.artwork.id);
             }
             final Slide ready = slide;
-            final boolean wasOffline = offline || art == null;
             handler.post(() -> {
-                failed.addAll(newFailures);
                 if (gen != generation) {
                     if (ready != null) release(ready);
                     return;
                 }
                 loading = false;
                 if (ready == null) {
-                    if (current == null && prepared == null) postPlaceholderNow(s, false);
+                    if ((current == null || current.placeholder) && prepared == null) postPlaceholderNow(s, false);
                     handler.postDelayed(retry, RETRY_MS);
                     return;
                 }
                 ready.immediate = immediate || (current != null && current.placeholder);
                 if (prepared != null) release(prepared);   // a placeholder still waiting
                 prepared = ready;
-                if (wasOffline) Log.i(Works.TAG, "offline: showing a work kept on disk");
                 invalidate();
             });
         });
     }
 
-    /** A random work kept on disk (of the category when `sameCategory`), decoded; null if there's none. */
-    private static Object[] fromDisk(Context ctx, String cat, Set<Integer> skip, int sw, int sh, boolean sameCategory) {
-        List<Integer> ids = Images.cachedIds(ctx);
-        Collections.shuffle(ids);
-        for (int id : ids) {
-            if (skip.contains(id)) continue;
-            Works.Work w = Works.byId(ctx, id);
-            if (w == null || (sameCategory && !w.in(cat))) continue;
-            try {
-                return new Object[] {w, Images.load(ctx, w, sw, sh, false)};
-            } catch (IOException | RuntimeException | OutOfMemoryError e) {
-                skip.add(id);
-            }
+    /** The application service for this screen size (made again when the size changes). */
+    private NextArtwork<Bitmap> nextArtwork(int sw, int sh) {
+        if (next == null || nextW != sw || nextH != sh) {
+            Context ctx = getContext().getApplicationContext();
+            next = new NextArtwork<>(MetCatalogue.get(ctx), exhibition, new MetPictures(ctx, sw, sh), new Random());
+            nextW = sw;
+            nextH = sh;
         }
-        return null;
+        return next;
     }
 
-    private void postPlaceholder(int gen, Prefs.Snapshot s, int sw, int sh, boolean loadingText) {
+    private void postPlaceholder(int gen, Settings s, int sw, int sh, boolean loadingText) {
         final Slide p = placeholder(s, sw, sh, loadingText);
         handler.post(() -> {
-            if (gen != generation || current != null || prepared != null) {
+            // Only on an empty screen, or instead of the "loading" one once it turns out there's no internet.
+            boolean replaces = current == null || (current.placeholder && current.loadingText && !loadingText);
+            if (gen != generation || !replaces || prepared != null) {
                 release(p);
                 return;
             }
+            p.immediate = current != null;
             prepared = p;
             invalidate();
         });
     }
 
-    private void postPlaceholderNow(Prefs.Snapshot s, boolean loadingText) {
+    private void postPlaceholderNow(Settings s, boolean loadingText) {
         final int gen = generation, sw = w, sh = h;
         worker.execute(() -> postPlaceholder(gen, s, sw, sh, loadingText));
     }
 
-    private Slide placeholder(Prefs.Snapshot s, int sw, int sh, boolean loadingText) {
+    private Slide placeholder(Settings s, int sw, int sh, boolean loadingText) {
         Slide p = new Slide();
         p.placeholder = true;
         p.loadingText = loadingText;
-        p.layout = new Composer.Layout(sw, sh, s, 1.5f);
-        p.image = gpu(Composer.compose(null, p.layout, s));
+        p.layout = new Layout(sw, sh, s, 1.5f);
+        p.image = gpu(Painter.paint(null, p.layout, s));
         return p;
     }
 
     /** Paints the work and measures its caption (worker thread: its own copies of the paints). */
-    private Slide build(Works.Work work, Bitmap art, Prefs.Snapshot s, int sw, int sh) {
+    private Slide build(Artwork work, Bitmap art, Settings s, int sw, int sh) {
         Slide slide = new Slide();
         slide.work = work;
-        slide.layout = new Composer.Layout(sw, sh, s, (float) art.getWidth() / art.getHeight());
-        slide.image = gpu(Composer.compose(art, slide.layout, s));
+        slide.layout = new Layout(sw, sh, s, (float) art.getWidth() / art.getHeight());
+        slide.image = gpu(Painter.paint(art, slide.layout, s));
         if (preview) slide.art = art;
         else art.recycle();
         caption(slide);
@@ -310,8 +285,8 @@ final class ArtView extends View {
     private void repaint(final Slide on) {
         loading = true;
         final int gen = generation, sw = w, sh = h;
-        final Prefs.Snapshot s = prefs;
-        final Works.Work work = on.work;
+        final Settings s = settings;
+        final Artwork work = on.work;
         final Bitmap art = on.art == null ? null : on.art.copy(Bitmap.Config.ARGB_8888, false);
         final boolean loadingText = on.loadingText;
         worker.execute(() -> {
@@ -340,7 +315,7 @@ final class ArtView extends View {
     private void caption(Slide s) {
         TextPaint who = new TextPaint(whoP), what = new TextPaint(whatP), meta = new TextPaint(metaP), src = new TextPaint(srcP);
         Locale loc = Locale.getDefault();
-        Works.Work wk = s.work;
+        Artwork wk = s.work;
         s.who = (wk.artist.isEmpty() ? getContext().getString(R.string.unknown_artist) : wk.artist).toUpperCase(loc);
         s.who = TextUtils.ellipsize(s.who, who, 1500 * k, TextUtils.TruncateAt.END).toString();
         s.what = TextUtils.ellipsize(wk.title.isEmpty() ? getContext().getString(R.string.untitled) : wk.title,
@@ -385,13 +360,13 @@ final class ArtView extends View {
             return;
         }
         if (incoming == null && prepared != null
-                && (prepared.immediate || up >= current.startedAt + prefs.everyMs())) {
+                && Rotation.due(current.startedAt, up, settings.everyMs(), prepared.immediate)) {
             incoming = prepared;
             prepared = null;
             incoming.startedAt = up;
             return;
         }
-        if (incoming != null && up >= incoming.startedAt + FADE_MS) {
+        if (incoming != null && up >= incoming.startedAt + Rotation.FADE_MS) {
             Slide old = current;
             current = incoming;
             incoming = null;
@@ -410,8 +385,9 @@ final class ArtView extends View {
         keep.add(id);
         if (incoming != null && incoming.work != null) keep.add(incoming.work.id);
         worker.execute(() -> {
-            Works.shown(ctx, id);
-            Images.prune(ctx, keep);
+            exhibition.shown(id);
+            SettingsStore.save(ctx, exhibition);
+            MetPictures.prune(ctx, keep);
         });
     }
 
@@ -423,8 +399,10 @@ final class ArtView extends View {
         day = new SimpleDateFormat(DateFormat.getBestDateTimePattern(loc, "EEEEdMMMMy"), loc).format(d).toUpperCase(loc);
         shortDay = new SimpleDateFormat(DateFormat.getBestDateTimePattern(loc, "EEEEdMMMM"), loc).format(d).toUpperCase(loc);
         section = (getContext().getString(R.string.masthead) + " · "
-                + getContext().getString(Prefs.CATEGORY_NAMES[prefs.category])).toUpperCase(loc);
-        boolean n = prefs.nightNow(now);
+                + getContext().getString(Names.category(settings.category))).toUpperCase(loc);
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.setTimeInMillis(now);
+        boolean n = settings.night.dims(cal.get(java.util.Calendar.HOUR_OF_DAY));
         if (n != night) {
             night = n;
             slidePaint.setColorFilter(night ? nightFilter : null);
@@ -502,11 +480,6 @@ final class ArtView extends View {
 
     // MARK: - Drawing
 
-    private static float ease(long elapsed, long duration) {
-        float t = Math.max(0, Math.min(1, elapsed / (float) duration));
-        return t * t * (3 - 2 * t);
-    }
-
     @Override protected void onDraw(Canvas c) {
         if (w == 0) return;
         long up = SystemClock.uptimeMillis();
@@ -516,8 +489,8 @@ final class ArtView extends View {
             c.drawRect(0, 0, w, h, black);
             return;
         }
-        float first = ease(up - firstAt, FIRST_MS);
-        float e = incoming == null ? 0 : ease(up - incoming.startedAt, FADE_MS);
+        float first = Rotation.ease(up - firstAt, Rotation.FIRST_MS);
+        float e = incoming == null ? 0 : Rotation.ease(up - incoming.startedAt, Rotation.FADE_MS);
         if (first < 1) c.drawRect(0, 0, w, h, black);
         slidePaint.setAlpha(Math.round(255 * first));
         c.drawBitmap(cur.image, 0, 0, slidePaint);
@@ -530,7 +503,7 @@ final class ArtView extends View {
         if (incoming != null) drawSlideText(c, incoming, up, e);
         // The masthead (or, at full bleed, the clock) stays put across the crossfade: same mat, same place.
         Slide top = incoming != null && e > 0.5f ? incoming : cur;
-        if (prefs.clock) {
+        if (settings.clock) {
             if (top.layout.bleed) drawBleedClock(c, first);
             else drawMasthead(c, top, first);
         }
@@ -542,16 +515,15 @@ final class ArtView extends View {
             postInvalidateOnAnimation();
         } else if (running) {
             long next = Long.MAX_VALUE;
-            if (prefs.info && up < cur.startedAt + INFO_MS) next = cur.startedAt + INFO_MS;
-            if (prepared != null) next = Math.min(next, cur.startedAt + prefs.everyMs());
+            if (settings.info && up < cur.startedAt + Rotation.CAPTION_MS) next = cur.startedAt + Rotation.CAPTION_MS;
+            if (prepared != null) next = Math.min(next, cur.startedAt + settings.everyMs());
             handler.removeCallbacks(wake);
             if (next != Long.MAX_VALUE) handler.postAtTime(wake, next);
         }
     }
 
     private boolean captionMoving(Slide s, long up) {
-        long t = up - s.startedAt;
-        return prefs.info && !s.placeholder && t >= INFO_MS && t < INFO_MS + INFO_FADE_MS + 50;
+        return settings.info && !s.placeholder && Rotation.captionFading(up - s.startedAt);
     }
 
     private int dim(int color, float alpha) {
@@ -567,8 +539,8 @@ final class ArtView extends View {
 
     private void drawSlideText(Canvas c, Slide s, long up, float alpha) {
         if (alpha <= 0.004f) return;
-        Composer.Layout l = s.layout;
-        int inkColor = l.bleed ? 0xFFF4F0E6 : prefs.ink();
+        Layout l = s.layout;
+        int inkColor = l.bleed ? 0xFFF4F0E6 : settings.mat.ink;
         if (s.placeholder) {
             float cy = (l.window.top + l.window.bottom) / 2, cx = w / 2f;
             msgTitleP.setColor(dim(inkColor, alpha * 0.85f));
@@ -579,9 +551,8 @@ final class ArtView extends View {
             }
             return;
         }
-        if (!prefs.info) return;
-        long t = up - s.startedAt;
-        float a = alpha * (t < INFO_MS ? 1 : 1 - ease(t - INFO_MS, INFO_FADE_MS));
+        if (!settings.info) return;
+        float a = alpha * Rotation.captionAlpha(up - s.startedAt);
         if (a <= 0.004f) return;
         float top;
         if (l.bleed) {
@@ -607,8 +578,8 @@ final class ArtView extends View {
 
     /** Section · full date · time, over a double rule, at the top of the mat. */
     private void drawMasthead(Canvas c, Slide s, float alpha) {
-        Composer.Layout l = s.layout;
-        int inkColor = prefs.ink();
+        Layout l = s.layout;
+        int inkColor = settings.mat.ink;
         float bottom = l.mastTop + 44 * k;
         secP.setColor(dim(inkColor, alpha * 0.8f));
         c.drawText(section, l.mastLeft, bottom - secP.descent(), secP);

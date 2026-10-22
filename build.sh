@@ -25,16 +25,23 @@ fi
 BT="$SDK/build-tools/$(ls "$SDK/build-tools" | sort -V | tail -1)"
 AJ="$(ls -d "$SDK"/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -1 || true)"
 [ -f "${AJ:-}" ] || { echo "Android platform not found. Run: sdkmanager \"platforms;android-34\""; exit 1; }
-# Prefer a Temurin 17 on macOS if JAVA_HOME isn't set (some other JVMs, like OpenJ9, misbehave with d8).
-if [ -z "${JAVA_HOME:-}" ] && [ -x /usr/libexec/java_home ]; then
+# d8 crashes on OpenJ9: on macOS take a HotSpot JDK 17 instead when JAVA_HOME is unset or OpenJ9.
+if { [ -z "${JAVA_HOME:-}" ] || "${JAVA_HOME}/bin/java" -version 2>&1 | grep -q OpenJ9; } && [ -x /usr/libexec/java_home ]; then
   JAVA_HOME="$(/usr/libexec/java_home -v 17 2>/dev/null || true)"
 fi
+# d8 and apksigner are scripts that run the `java` on PATH: make it the same JDK.
+[ -n "${JAVA_HOME:-}" ] && export JAVA_HOME PATH="$JAVA_HOME/bin:$PATH"
 JAVAC="${JAVA_HOME:+$JAVA_HOME/bin/}javac"
 KEYTOOL="${JAVA_HOME:+$JAVA_HOME/bin/}keytool"
 command -v "$JAVAC" >/dev/null 2>&1 || { echo "JDK not found. Install JDK 17 and set JAVA_HOME."; exit 1; }
 [ -f app/assets/artworks.json ] || { echo "app/assets/artworks.json missing: run tools/make_artlist.py first."; exit 1; }
 
-rm -rf out && mkdir -p out/gen out/classes
+rm -rf out && mkdir -p out/gen out/classes out/test
+
+# --- Domain tests on the plain JVM: domain + application compiled without android.jar (so they can't use Android).
+"$JAVAC" -nowarn -Xlint:-options -source 8 -target 8 -encoding UTF-8 -d out/test \
+  $(find app/src/io/yourframe/tv/domain app/src/io/yourframe/tv/application app/test -name '*.java')
+"${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp out/test io.yourframe.tv.DomainTest
 "$BT/aapt2" compile --dir app/res -o out/res.zip
 # Fonts uncompressed: Android reads them straight from the APK.
 "$BT/aapt2" link -o out/base.apk -I "$AJ" --manifest app/AndroidManifest.xml --java out/gen out/res.zip \

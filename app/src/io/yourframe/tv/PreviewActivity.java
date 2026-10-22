@@ -6,6 +6,8 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 
+import io.yourframe.tv.ui.ArtView;
+
 /** "Preview": the screensaver full screen, as the TV will show it. Any key goes back, as in the real one. */
 public class PreviewActivity extends Activity {
     private ArtView view;
