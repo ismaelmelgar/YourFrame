@@ -30,7 +30,13 @@ Fonts (app/assets/fonts, licences alongside)
   Playfair Display, Copyright 2017 The Playfair Display Project Authors, SIL Open Font License 1.1.
   Libre Caslon Text, Copyright 2018 The Libre Caslon Text Project Authors, SIL Open Font License 1.1.
 
-Images and data
-  The Metropolitan Museum of Art Open Access: public-domain images and data, CC0
-  (https://www.metmuseum.org/about-the-met/policies-and-documents/open-access). Images are downloaded at run time;
-  app/assets/artworks.json holds only the works' data. YourFrame is not affiliated with or endorsed by The Met.
+Images and data (downloaded at run time; app/assets/artworks.json holds only the works' data)
+  The Metropolitan Museum of Art, Open Access: public-domain images and data, CC0 1.0
+    https://www.metmuseum.org/about-the-met/policies-and-documents/open-access
+  The Cleveland Museum of Art, Open Access: CC0 1.0 images and data
+    https://www.clevelandart.org/open-access
+  Statens Museum for Kunst (SMK), National Gallery of Denmark: public-domain works, Public Domain Mark 1.0
+    https://www.smk.dk/en/article/smk-api/
+  National Gallery of Art, Washington: open data and open access images, CC0 1.0
+    https://github.com/NationalGalleryOfArt/opendata
+  YourFrame is not affiliated with or endorsed by any of these museums.

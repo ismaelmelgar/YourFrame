@@ -42,6 +42,8 @@ rm -rf out && mkdir -p out/gen out/classes out/test
 "$JAVAC" -nowarn -Xlint:-options -source 8 -target 8 -encoding UTF-8 -d out/test \
   $(find app/src/io/yourframe/tv/domain app/src/io/yourframe/tv/application app/test -name '*.java')
 "${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp out/test io.yourframe.tv.DomainTest
+# The catalogue rules of the data tool (pure Python, no Pillow needed).
+if command -v python3 >/dev/null; then python3 -I tools/test_artlist.py; fi
 "$BT/aapt2" compile --dir app/res -o out/res.zip
 # Fonts uncompressed: Android reads them straight from the APK.
 "$BT/aapt2" link -o out/base.apk -I "$AJ" --manifest app/AndroidManifest.xml --java out/gen out/res.zip \

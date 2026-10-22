@@ -2,8 +2,8 @@ package io.yourframe.tv.application;
 
 import io.yourframe.tv.domain.Artwork;
 import io.yourframe.tv.domain.Catalogue;
-import io.yourframe.tv.domain.Category;
 import io.yourframe.tv.domain.Exhibition;
+import io.yourframe.tv.domain.Settings;
 
 import java.io.IOException;
 import java.net.ConnectException;
@@ -18,7 +18,7 @@ import java.util.Set;
 
 /**
  * Finds the next Artwork to hang and its picture: a fresh pick from the Exhibition, downloaded; without internet, one
- * kept on the TV (of the Category if possible). Runs on a worker thread.
+ * kept on the TV (of the Category and the museums that are on, if possible). Runs on a worker thread.
  */
 public final class NextArtwork<P> {
     /** Where pictures come from: the TV's own copies and the museum. The infrastructure provides it. */
@@ -57,10 +57,10 @@ public final class NextArtwork<P> {
     }
 
     /** The next work, or null when there's nothing to show (offline with nothing kept). `onScreen`: not these. */
-    public Found<P> find(Category category, Set<Integer> onScreen) {
+    public Found<P> find(Settings settings, Set<Integer> onScreen) {
         Set<Integer> skip = skip(onScreen);
         for (int i = 0; i < TRIES; i++) {
-            Artwork a = exhibition.next(catalogue.in(category), skip, random);
+            Artwork a = exhibition.next(catalogue.in(settings), skip, random);
             if (a == null) break;
             try {
                 return new Found<>(a, pictures.load(a, true), false);
@@ -72,13 +72,13 @@ public final class NextArtwork<P> {
                 failed.add(a.id);
             }
         }
-        Found<P> kept = fromKept(category, skip, true);
-        return kept != null ? kept : fromKept(category, skip, false);
+        Found<P> kept = fromKept(settings, skip, true);
+        return kept != null ? kept : fromKept(settings, skip, false);
     }
 
     /** A work of the Category kept on the TV, at once (the first of a session, while an original downloads); or null. */
-    public Found<P> kept(Category category, Set<Integer> onScreen) {
-        return fromKept(category, skip(onScreen), true);
+    public Found<P> kept(Settings settings, Set<Integer> onScreen) {
+        return fromKept(settings, skip(onScreen), true);
     }
 
     private Set<Integer> skip(Set<Integer> onScreen) {
@@ -87,12 +87,12 @@ public final class NextArtwork<P> {
         return skip;
     }
 
-    private Found<P> fromKept(Category category, Set<Integer> skip, boolean sameCategory) {
+    private Found<P> fromKept(Settings settings, Set<Integer> skip, boolean chosen) {
         List<Integer> ids = new ArrayList<>(pictures.kept());
         Collections.shuffle(ids, random);
         for (int id : ids) {
             Artwork a = catalogue.byId(id);
-            if (a == null || skip.contains(id) || (sameCategory && !category.includes(a))) continue;
+            if (a == null || skip.contains(id) || (chosen && !(settings.category.includes(a) && settings.shows(a.museum)))) continue;
             try {
                 return new Found<>(a, pictures.load(a, false), true);
             } catch (IOException | RuntimeException e) {

@@ -8,7 +8,7 @@
     <string name="offline_text">Las obras se colgarán aquí en cuanto la tele tenga internet.</string>
     <string name="loading_text">Colgando la primera obra…</string>
 
-    <string name="cat_all">Todo (destacadas)</string>
+    <string name="cat_all">Todo</string>
     <string name="cat_eu">Pintura europea</string>
     <string name="cat_am">Pintura americana</string>
     <string name="cat_as">Arte asiático</string>
@@ -64,4 +64,5 @@
     <string name="act_opened">Elige YourFrame en la lista de salvapantallas.</string>
     <string name="act_computer">Desde un ordenador: %1$s</string>
     <string name="credits">Imágenes: The Metropolitan Museum of Art, Open Access (CC0). Tipografía: Playfair Display, Libre Caslon Text (SIL OFL). Basada en Free My TV (MIT).</string>
+    <string name="set_museums">Museos</string>
 </resources>

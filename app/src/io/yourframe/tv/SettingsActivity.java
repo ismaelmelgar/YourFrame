@@ -22,7 +22,7 @@ import io.yourframe.tv.domain.Frame;
 import io.yourframe.tv.domain.Mat;
 import io.yourframe.tv.domain.Night;
 import io.yourframe.tv.domain.Settings;
-import io.yourframe.tv.infrastructure.MetCatalogue;
+import io.yourframe.tv.infrastructure.CatalogueFile;
 import io.yourframe.tv.infrastructure.ScreensaverActivation;
 import io.yourframe.tv.infrastructure.SettingsStore;
 import io.yourframe.tv.ui.ArtView;
@@ -80,19 +80,20 @@ public class SettingsActivity extends Activity {
         for (int i = 0; i < mats.length; i++) matColors[i] = mats[i].color;
 
         left.addView(new Row(this, R.string.set_category, names(cats, Names::category), x -> x.category.ordinal(),
-                (x, i) -> new Settings(cats[i], x.frame, x.mat, x.everySeconds, x.info, x.clock, x.night), null));
+                (x, i) -> new Settings(cats[i], x.frame, x.mat, x.everySeconds, x.info, x.clock, x.night, x.museumsOff), null));
         left.addView(new Row(this, R.string.set_frame, names(frames, Names::frame), x -> x.frame.ordinal(),
-                (x, i) -> new Settings(x.category, frames[i], x.mat, x.everySeconds, x.info, x.clock, x.night), null));
+                (x, i) -> new Settings(x.category, frames[i], x.mat, x.everySeconds, x.info, x.clock, x.night, x.museumsOff), null));
         left.addView(new Row(this, R.string.set_mat, names(mats, Names::mat), x -> x.mat.ordinal(),
-                (x, i) -> new Settings(x.category, x.frame, mats[i], x.everySeconds, x.info, x.clock, x.night), matColors));
+                (x, i) -> new Settings(x.category, x.frame, mats[i], x.everySeconds, x.info, x.clock, x.night, x.museumsOff), matColors));
         left.addView(new Row(this, R.string.set_every, everyNames, x -> indexOf(Settings.EVERY, x.everySeconds),
-                (x, i) -> new Settings(x.category, x.frame, x.mat, Settings.EVERY[i], x.info, x.clock, x.night), null));
+                (x, i) -> new Settings(x.category, x.frame, x.mat, Settings.EVERY[i], x.info, x.clock, x.night, x.museumsOff), null));
         left.addView(new Row(this, R.string.set_info, onOff, x -> x.info ? 0 : 1,
-                (x, i) -> new Settings(x.category, x.frame, x.mat, x.everySeconds, i == 0, x.clock, x.night), null));
+                (x, i) -> new Settings(x.category, x.frame, x.mat, x.everySeconds, i == 0, x.clock, x.night, x.museumsOff), null));
         left.addView(new Row(this, R.string.set_clock, onOff, x -> x.clock ? 0 : 1,
-                (x, i) -> new Settings(x.category, x.frame, x.mat, x.everySeconds, x.info, i == 0, x.night), null));
+                (x, i) -> new Settings(x.category, x.frame, x.mat, x.everySeconds, x.info, i == 0, x.night, x.museumsOff), null));
+        left.addView(new MuseumsRow(this));
         left.addView(new Row(this, R.string.set_night, names(nights, Names::night), x -> x.night.ordinal(),
-                (x, i) -> new Settings(x.category, x.frame, x.mat, x.everySeconds, x.info, x.clock, nights[i]), null));
+                (x, i) -> new Settings(x.category, x.frame, x.mat, x.everySeconds, x.info, x.clock, nights[i], x.museumsOff), null));
         space(left, 8);
         Row previewRow = new Row(this, R.string.set_preview, () -> startActivity(new Intent(this, PreviewActivity.class)));
         left.addView(previewRow);
@@ -158,9 +159,9 @@ public class SettingsActivity extends Activity {
     }
 
     private void updateCount() {
-        Category c = SettingsStore.read(this).category;
-        count.setText(getString(Names.category(c)) + " · "
-                + getString(R.string.works_count, MetCatalogue.get(this).in(c).size()) + " · The Met");
+        Settings s = SettingsStore.read(this);
+        count.setText(getString(Names.category(s.category)) + " · "
+                + getString(R.string.works_count, CatalogueFile.get(this).in(s).size()));
     }
 
     private void refreshStatus(boolean withCommand) {
@@ -310,6 +311,76 @@ public class SettingsActivity extends Activity {
                 return true;
             }
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) return true;
+            return super.onKeyDown(keyCode, e);
+        }
+    }
+    /**
+     * The museums, on one row: ◀ ▶ move between them, OK turns the one under the cursor on or off (one always stays
+     * on). Off ones are struck through.
+     */
+    private final class MuseumsRow extends LinearLayout {
+        private final TextView label, value;
+        private final java.util.List<io.yourframe.tv.domain.Museum> museums = CatalogueFile.get(getContext()).museums;
+        private int cursor;
+
+        MuseumsRow(Context c) {
+            super(c);
+            setOrientation(HORIZONTAL);
+            setGravity(Gravity.CENTER_VERTICAL);
+            setFocusable(true);
+            setClickable(true);
+            setPadding(px(12), px(6), px(12), px(6));
+            label = text(getString(R.string.set_museums).toUpperCase(), Fonts.textBold, 10, INK);
+            label.setLetterSpacing(0.16f);
+            addView(label, new LayoutParams(-2, -2));
+            value = text("", Fonts.displayItalic, 11.5f, INK);
+            value.setSingleLine();
+            value.setGravity(Gravity.END);
+            addView(value, new LayoutParams(0, -2, 1));
+            setOnClickListener(v -> toggle());
+            setOnFocusChangeListener((v, f) -> refresh());
+            setLayoutParams(new LayoutParams(-1, -2));
+            refresh();
+        }
+
+        private void toggle() {
+            if (museums.isEmpty()) return;
+            Settings now = SettingsStore.read(getContext());
+            String id = museums.get(cursor).id;
+            SettingsStore.save(getContext(), now.withMuseum(id, !now.shows(id), CatalogueFile.get(getContext()).museumIds()));
+            refresh();
+            changed();
+        }
+
+        void refresh() {
+            boolean f = hasFocus();
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(px(3));
+            bg.setColor(f ? INK : 0x00000000);
+            setBackground(bg);
+            int fg = f ? PAPER : INK, dim = f ? 0x80F1EDE4 : 0x801E1C19;
+            label.setTextColor(fg);
+            Settings s = SettingsStore.read(getContext());
+            android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+            for (int i = 0; i < museums.size(); i++) {
+                if (i > 0) sb.append("  ·  ");
+                int start = sb.length();
+                sb.append(museums.get(i).shortName);
+                boolean on = s.shows(museums.get(i).id);
+                sb.setSpan(new android.text.style.ForegroundColorSpan(on ? fg : dim), start, sb.length(), 0);
+                if (!on) sb.setSpan(new android.text.style.StrikethroughSpan(), start, sb.length(), 0);
+                if (f && i == cursor) sb.setSpan(new android.text.style.UnderlineSpan(), start, sb.length(), 0);
+            }
+            value.setText(sb);
+        }
+
+        @Override public boolean onKeyDown(int keyCode, KeyEvent e) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                int n = Math.max(1, museums.size());
+                cursor = (cursor + (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : n - 1)) % n;
+                refresh();
+                return true;
+            }
             return super.onKeyDown(keyCode, e);
         }
     }

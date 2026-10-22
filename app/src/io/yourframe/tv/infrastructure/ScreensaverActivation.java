@@ -84,7 +84,7 @@ public final class ScreensaverActivation {
                 result = ok ? app.getString(R.string.act_done)
                         : app.getString(R.string.act_failed, now) + "\n" + app.getString(R.string.act_computer, adbCommand(app));
             } catch (IOException | RuntimeException e) {
-                Log.w(MetCatalogue.TAG, "activation: " + e.getMessage());
+                Log.w(CatalogueFile.TAG, "activation: " + e.getMessage());
                 String m = String.valueOf(e.getMessage());
                 String why = m.contains("port 5555") ? app.getString(R.string.act_debug_off)
                         : m.contains("accepted") || m.contains("rejected") ? app.getString(R.string.act_rejected)

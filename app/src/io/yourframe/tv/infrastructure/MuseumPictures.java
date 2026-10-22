@@ -27,16 +27,17 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * The works' pictures for one screen size: the ORIGINAL downloaded in the background, decoded already cropped (the photo's border off) and
+ * The works' pictures for one screen size: from IIIF at exactly the width needed, or the museum's full image,
+ * downloaded in the background, decoded already cropped (the photo's border off) and
  * reduced to what the screen can show (inSampleSize, then halving steps, as Free My TV's Backdrop does), and the last
  * 12 kept on disk as JPEGs so the screensaver still works without internet. Runs on a worker thread only.
  */
-public final class MetPictures implements NextArtwork.Pictures<Bitmap> {
+public final class MuseumPictures implements NextArtwork.Pictures<Bitmap> {
     private final Context context;
     private final int w, h;
 
     /** For a screen of w × h. */
-    public MetPictures(Context c, int w, int h) {
+    public MuseumPictures(Context c, int w, int h) {
         context = c.getApplicationContext();
         this.w = w;
         this.h = h;
@@ -103,11 +104,13 @@ public final class MetPictures implements NextArtwork.Pictures<Bitmap> {
         boolean original = true;
         try {
             try {
-                download(work.originalUrl, tmp);
+                download(work.image.url(Layout.keptSize(work.ratio, w, h)[0], work.cropWidth()), tmp);
             } catch (IOException e) {
-                Log.w(MetCatalogue.TAG, "original of " + work.id + ": " + e.getMessage() + "; trying web-large");
+                String small = work.image.fallback();
+                if (small == null) throw e;
+                Log.w(CatalogueFile.TAG, work.museum + " " + work.source + ": " + e.getMessage() + "; trying a smaller one");
                 original = false;
-                download(work.smallUrl, tmp);
+                download(small, tmp);
             }
             Bitmap b = decode(tmp, work, w, h);
             if (original) save(c, work.id, b);
@@ -164,7 +167,7 @@ public final class MetPictures implements NextArtwork.Pictures<Bitmap> {
                 rd.recycle();
             }
         } catch (IOException | RuntimeException e) {
-            Log.w(MetCatalogue.TAG, "region decoder: " + e.getMessage());
+            Log.w(CatalogueFile.TAG, "region decoder: " + e.getMessage());
         }
         if (src == null) {
             Bitmap whole = BitmapFactory.decodeFile(f.getPath(), opts);

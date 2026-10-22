@@ -25,11 +25,12 @@ import io.yourframe.tv.application.NextArtwork;
 import io.yourframe.tv.domain.Artwork;
 import io.yourframe.tv.domain.Exhibition;
 import io.yourframe.tv.domain.Layout;
+import io.yourframe.tv.domain.Museum;
 import io.yourframe.tv.domain.Night;
 import io.yourframe.tv.domain.Rotation;
 import io.yourframe.tv.domain.Settings;
-import io.yourframe.tv.infrastructure.MetCatalogue;
-import io.yourframe.tv.infrastructure.MetPictures;
+import io.yourframe.tv.infrastructure.CatalogueFile;
+import io.yourframe.tv.infrastructure.MuseumPictures;
 import io.yourframe.tv.infrastructure.SettingsStore;
 
 import java.text.SimpleDateFormat;
@@ -196,18 +197,18 @@ public final class ArtView extends View {
         final NextArtwork<Bitmap> next = nextArtwork(sw, sh);
         worker.execute(() -> {
             // The first work of a session: one kept on the TV if there is one, else "loading" while it downloads.
-            NextArtwork.Found<Bitmap> found = first ? next.kept(s.category, onScreen) : null;
+            NextArtwork.Found<Bitmap> found = first ? next.kept(s, onScreen) : null;
             if (first && found == null) postPlaceholder(gen, s, sw, sh, true);
-            if (found == null) found = next.find(s.category, onScreen);
+            if (found == null) found = next.find(s, onScreen);
             Slide slide = null;
             if (found != null) {
                 try {
                     slide = build(found.artwork, found.picture, s, sw, sh);
                 } catch (RuntimeException | OutOfMemoryError e) {
-                    Log.w(MetCatalogue.TAG, "paint: " + e);
+                    Log.w(CatalogueFile.TAG, "paint: " + e);
                     found.picture.recycle();
                 }
-                if (found.kept) Log.i(MetCatalogue.TAG, "showing a work kept on the TV: " + found.artwork.id);
+                if (found.kept) Log.i(CatalogueFile.TAG, "showing a work kept on the TV: " + found.artwork.id);
             }
             final Slide ready = slide;
             handler.post(() -> {
@@ -233,7 +234,7 @@ public final class ArtView extends View {
     private NextArtwork<Bitmap> nextArtwork(int sw, int sh) {
         if (next == null || nextW != sw || nextH != sh) {
             Context ctx = getContext().getApplicationContext();
-            next = new NextArtwork<>(MetCatalogue.get(ctx), exhibition, new MetPictures(ctx, sw, sh), new Random());
+            next = new NextArtwork<>(CatalogueFile.get(ctx), exhibition, new MuseumPictures(ctx, sw, sh), new Random());
             nextW = sw;
             nextH = sh;
         }
@@ -320,7 +321,8 @@ public final class ArtView extends View {
         s.who = TextUtils.ellipsize(s.who, who, 1500 * k, TextUtils.TruncateAt.END).toString();
         s.what = TextUtils.ellipsize(wk.title.isEmpty() ? getContext().getString(R.string.untitled) : wk.title,
                 what, 1200 * k, TextUtils.TruncateAt.END).toString();
-        s.src = getContext().getString(R.string.museum).toUpperCase(loc);
+        Museum museum = CatalogueFile.get(getContext()).museum(wk.museum);
+        s.src = (museum != null ? museum.name : wk.museum).toUpperCase(loc);
         s.srcW = src.measureText(s.src);
         StringBuilder m = new StringBuilder(wk.date);
         if (!wk.medium.isEmpty()) m.append(m.length() > 0 ? " · " : "").append(wk.medium);
@@ -387,7 +389,7 @@ public final class ArtView extends View {
         worker.execute(() -> {
             exhibition.shown(id);
             SettingsStore.save(ctx, exhibition);
-            MetPictures.prune(ctx, keep);
+            MuseumPictures.prune(ctx, keep);
         });
     }
 

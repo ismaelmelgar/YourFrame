@@ -22,8 +22,21 @@ public final class DomainTest {
         }
     }
 
-    private static Artwork art(int id, String cat, boolean highlight, float ratio) {
-        return new Artwork(id, cat, "T" + id, "A", "1900", "Oil", "o" + id, "s" + id, highlight, ratio, null, 0xFF808080);
+    private static Artwork art(int id, String cat, float ratio) {
+        return art(id, "met", cat, ratio);
+    }
+
+    private static Artwork art(int id, String museum, String cat, float ratio) {
+        return new Artwork(id, museum, "" + id, cat, "T" + id, "A", "1900", "Oil", ImageRef.fixed("o" + id, "s" + id),
+                ratio, null, 0xFF808080);
+    }
+
+    private static final List<Museum> MUSEUMS = Arrays.asList(new Museum("met", "The Metropolitan Museum of Art", "The Met", "CC0"),
+            new Museum("nga", "National Gallery of Art, Washington", "NGA", "CC0"));
+
+    private static Settings with(Category c) {
+        Settings d = Settings.DEFAULT;
+        return new Settings(c, d.frame, d.mat, d.everySeconds, d.info, d.clock, d.night, d.museumsOff);
     }
 
     public static void main(String[] args) throws Exception {
@@ -36,27 +49,31 @@ public final class DomainTest {
         crop();
         rotation();
         nextArtwork();
+        museums();
+        images();
         System.out.println("Domain tests: " + checks + " checks passed");
     }
 
     static void categories() {
-        Artwork euHi = art(1, "eu", true, 1.5f), euLo = art(2, "eu", false, 1.5f), phHi = art(3, "ph", true, 1.5f);
-        check(Category.ALL.includes(euHi), "All has highlights");
-        check(!Category.ALL.includes(euLo), "All has only highlights");
-        check(!Category.ALL.includes(phHi), "All leaves photography out");
-        check(Category.EUROPEAN.includes(euLo) && !Category.EUROPEAN.includes(phHi), "a department has its own works");
+        Artwork eu = art(1, "eu", 1.5f), as = art(2, "as", 1.5f), ph = art(3, "ph", 1.5f);
+        check(Category.ALL.includes(eu) && Category.ALL.includes(as), "All has every category...");
+        check(!Category.ALL.includes(ph), "...but photography");
+        check(Category.EUROPEAN.includes(eu) && !Category.EUROPEAN.includes(ph), "a category has its own works");
         check(Category.byId("nope") == Category.ALL && Category.byId("ph") == Category.PHOTOGRAPHY, "byId");
     }
 
     static void catalogue() {
-        Catalogue c = new Catalogue(Arrays.asList(art(1, "eu", true, 1.5f), art(2, "eu", true, 1.19f), art(3, "eu", true, 1.2f)));
+        Catalogue c = new Catalogue(MUSEUMS, Arrays.asList(art(1, "eu", 1.5f), art(2, "eu", 1.19f), art(3, "eu", 1.2f),
+                art(3, "nga", "eu", 1.5f)));
         check(c.size() == 2 && c.byId(2) == null, "portrait and square works never hang");
-        check(c.in(Category.EUROPEAN).size() == 2 && c.in(Category.ASIAN).isEmpty(), "filter by category");
+        check(c.byId(3).museum.equals("met"), "an id clash keeps the first work");
+        check(c.in(with(Category.EUROPEAN)).size() == 2 && c.in(with(Category.ASIAN)).isEmpty(), "filter by category");
+        check(c.museum("nga").name.startsWith("National Gallery") && c.museum("x") == null, "museums by id");
     }
 
     static void exhibition() {
         List<Artwork> pool = new ArrayList<>();
-        for (int i = 0; i < 60; i++) pool.add(art(i, "eu", true, 1.5f));
+        for (int i = 0; i < 60; i++) pool.add(art(i, "eu", 1.5f));
         Exhibition e = new Exhibition("");
         Random r = new Random(7);
         Set<Integer> seen = new HashSet<>();
@@ -87,12 +104,14 @@ public final class DomainTest {
 
     static void settings() {
         Settings d = Settings.DEFAULT;
-        check(new Settings(d.category, d.frame, d.mat, 42, true, true, d.night).everySeconds == 60, "unknown interval falls back to 1 min");
+        Set<String> none = Collections.emptySet();
+        check(new Settings(d.category, d.frame, d.mat, 42, true, true, d.night, none).everySeconds == 60, "unknown interval falls back to 1 min");
         check(d.comparedWith(d) == Settings.Change.NONE, "same settings");
-        check(new Settings(Category.ASIAN, d.frame, d.mat, 60, true, true, d.night).comparedWith(d) == Settings.Change.CATEGORY, "category");
-        check(new Settings(d.category, Frame.GOLD, d.mat, 60, true, true, d.night).comparedWith(d) == Settings.Change.LOOK, "frame is a repaint");
-        check(new Settings(d.category, d.frame, d.mat, 60, false, true, d.night).comparedWith(d) == Settings.Change.LOOK, "caption is a repaint");
-        check(new Settings(d.category, d.frame, d.mat, 300, true, true, d.night).comparedWith(d) == Settings.Change.TIMING, "interval");
+        check(new Settings(Category.ASIAN, d.frame, d.mat, 60, true, true, d.night, none).comparedWith(d) == Settings.Change.CATEGORY, "category");
+        check(new Settings(d.category, Frame.GOLD, d.mat, 60, true, true, d.night, none).comparedWith(d) == Settings.Change.LOOK, "frame is a repaint");
+        check(new Settings(d.category, d.frame, d.mat, 60, false, true, d.night, none).comparedWith(d) == Settings.Change.LOOK, "caption is a repaint");
+        check(new Settings(d.category, d.frame, d.mat, 300, true, true, d.night, none).comparedWith(d) == Settings.Change.TIMING, "interval");
+        check(d.withMuseum("met", false, Arrays.asList("met", "nga")).comparedWith(d) == Settings.Change.CATEGORY, "museums change the works");
     }
 
     static void layout() {
@@ -103,11 +122,11 @@ public final class DomainTest {
         check(Math.abs((l.window.left - l.inner.left) - (l.inner.right - l.window.right)) <= 1, "centred");
         check(l.window.top > l.mastTop + 44 && l.captionTop > l.window.bottom, "masthead above, caption below");
         check(l.captionTop + 100 < 1080, "the caption fits on screen");
-        Settings gold = new Settings(d.category, Frame.GOLD, d.mat, 60, true, true, d.night);
+        Settings gold = new Settings(d.category, Frame.GOLD, d.mat, 60, true, true, d.night, d.museumsOff);
         check(new Layout(1920, 1080, gold, 1.5f).inner.left == 64, "the frame takes its width");
         Layout small = new Layout(1280, 720, gold, 1.5f);
         check(Math.abs(small.inner.left - 64 * 1280 / 1920f) < 0.01f, "720p UIs scale everything");
-        Settings bleed = new Settings(d.category, Frame.BLEED, d.mat, 60, true, true, d.night);
+        Settings bleed = new Settings(d.category, Frame.BLEED, d.mat, 60, true, true, d.night, d.museumsOff);
         Layout b = new Layout(1920, 1080, bleed, 1.3f);
         check(b.window.left <= 0 && b.window.top <= 0 && b.window.right >= 1920 && b.window.bottom >= 1080, "full bleed covers");
         Layout wide = new Layout(1920, 1080, bleed, 2.5f);
@@ -119,9 +138,9 @@ public final class DomainTest {
     }
 
     static void crop() {
-        Artwork a = new Artwork(1, "eu", "", "", "", "", "", "", true, 1.5f, new float[] {0.1f, 0.05f, 0.9f, 0.95f}, 0);
+        Artwork a = new Artwork(1, "met", "1", "eu", "", "", "", "", ImageRef.fixed("o", "s"), 1.5f, new float[] {0.1f, 0.05f, 0.9f, 0.95f}, 0);
         check(Arrays.equals(a.cropIn(1000, 800), new int[] {100, 40, 900, 760}), "crop fractions apply to any size");
-        Artwork bad = new Artwork(1, "eu", "", "", "", "", "", "", true, 1.5f, new float[] {0.5f, 0.5f, 0.5f, 0.5f}, 0);
+        Artwork bad = new Artwork(1, "met", "1", "eu", "", "", "", "", ImageRef.fixed("o", "s"), 1.5f, new float[] {0.5f, 0.5f, 0.5f, 0.5f}, 0);
         check(Arrays.equals(bad.cropIn(1000, 800), new int[] {0, 0, 1000, 800}), "a degenerate crop keeps the whole image");
     }
 
@@ -131,6 +150,31 @@ public final class DomainTest {
         check(Rotation.captionFading(10_500) && !Rotation.captionFading(5_000) && !Rotation.captionFading(12_000), "fading window");
         check(!Rotation.due(0, 59_999, 60_000, false) && Rotation.due(0, 60_000, 60_000, false), "due when its time is up");
         check(Rotation.due(0, 1, 60_000, true), "a placeholder or a change goes at once");
+    }
+
+    static void museums() {
+        List<String> all = Arrays.asList("met", "nga");
+        Settings d = Settings.DEFAULT;
+        Settings noMet = d.withMuseum("met", false, all);
+        check(!noMet.shows("met") && noMet.shows("nga"), "a museum off");
+        check(noMet.withMuseum("nga", false, all) == noMet, "the last museum on stays on");
+        check(noMet.withMuseum("met", true, all).museumsOff.isEmpty(), "and back on");
+        check(d.shows("someday"), "a museum added later is on");
+        Catalogue c = new Catalogue(MUSEUMS, Arrays.asList(art(1, "met", "eu", 1.5f), art(2, "nga", "eu", 1.5f)));
+        check(c.in(noMet).size() == 1 && c.in(noMet).get(0).museum.equals("nga"), "the catalogue follows the selection");
+        check(c.museumIds().equals(all), "museum ids in order");
+    }
+
+    static void images() {
+        ImageRef iiif = ImageRef.iiif("https://api.nga.gov/iiif/abc", 5000);
+        check(iiif.url(1920, 1).equals("https://api.nga.gov/iiif/abc/full/1920,/0/default.jpg"), "IIIF: exactly the screen's width");
+        check(iiif.url(1920, 0.8f).equals("https://api.nga.gov/iiif/abc/full/2400,/0/default.jpg"), "IIIF: wider when a border is cropped");
+        check(ImageRef.iiif("b", 1500).url(1920, 1).equals("b/full/1500,/0/default.jpg"), "IIIF: never wider than the full image");
+        check(ImageRef.iiif("b", 0).url(1280, 1).equals("b/full/1280,/0/default.jpg"), "IIIF: unknown width");
+        check(iiif.fallback().equals("https://api.nga.gov/iiif/abc/full/!1280,1280/0/default.jpg"), "IIIF fallback");
+        ImageRef fixed = ImageRef.fixed("https://images.metmuseum.org/x/original/a.jpg", "https://images.metmuseum.org/x/web-large/a.jpg");
+        check(fixed.url(1920, 0.5f).equals(fixed.url) && fixed.fallback().endsWith("web-large/a.jpg"), "a fixed URL is what it is");
+        check(ImageRef.fixed("u", null).fallback() == null, "no fallback");
     }
 
     /** Pictures that are "kept" for some ids and downloadable unless offline or broken. */
@@ -155,25 +199,32 @@ public final class DomainTest {
     }
 
     static void nextArtwork() {
-        Catalogue c = new Catalogue(Arrays.asList(art(1, "eu", true, 1.5f), art(2, "eu", true, 1.5f),
-                art(3, "as", true, 1.5f), art(4, "as", true, 1.5f)));
+        Catalogue c = new Catalogue(MUSEUMS, Arrays.asList(art(1, "eu", 1.5f), art(2, "eu", 1.5f),
+                art(3, "as", 1.5f), art(4, "as", 1.5f), art(5, "nga", "eu", 1.5f)));
         FakePictures pics = new FakePictures(3);
         NextArtwork<String> next = new NextArtwork<>(c, new Exhibition(""), pics, new Random(1));
-        NextArtwork.Found<String> f = next.find(Category.EUROPEAN, Collections.emptySet());
+        NextArtwork.Found<String> f = next.find(with(Category.EUROPEAN), Collections.emptySet());
         check(f != null && f.artwork.category.equals("eu") && !f.kept && f.picture.startsWith("net"), "online: a fresh download");
-        check(next.kept(Category.EUROPEAN, Collections.emptySet()) == null, "nothing kept in this category");
-        check(next.kept(Category.ASIAN, Collections.emptySet()).artwork.id == 3, "the first work: kept on the TV");
+        check(next.kept(with(Category.EUROPEAN), Collections.emptySet()) == null, "nothing kept in this category");
+        check(next.kept(with(Category.ASIAN), Collections.emptySet()).artwork.id == 3, "the first work: kept on the TV");
         pics.offline = true;
-        f = next.find(Category.EUROPEAN, Collections.emptySet());
+        f = next.find(with(Category.EUROPEAN), Collections.emptySet());
         check(f != null && f.kept && f.artwork.id == 3, "offline: a kept work, even of another category");
-        f = next.find(Category.ASIAN, Collections.emptySet());
+        f = next.find(with(Category.ASIAN), Collections.emptySet());
         check(f != null && f.artwork.id == 3, "offline: a kept work of the category first");
-        check(next.find(Category.ASIAN, Collections.singleton(3)) == null, "offline with nothing else kept: nothing");
+        check(next.find(with(Category.ASIAN), Collections.singleton(3)) == null, "offline with nothing else kept: nothing");
         check(next.failed.isEmpty(), "no internet is not a broken work");
         pics.offline = false;
-        pics.broken.add(1);
-        pics.broken.add(2);
-        f = next.find(Category.EUROPEAN, Collections.emptySet());
-        check(f != null && f.artwork.id == 3 && next.failed.containsAll(Arrays.asList(1, 2)), "broken images are skipped and remembered");
+        pics.broken.addAll(Arrays.asList(1, 2, 5));
+        f = next.find(with(Category.EUROPEAN), Collections.emptySet());
+        check(f != null && f.artwork.id == 3 && next.failed.containsAll(Arrays.asList(1, 2, 5)),
+                "broken images are skipped and remembered; then a kept work");
+        Settings noNga = with(Category.EUROPEAN).withMuseum("nga", false, c.museumIds());
+        next.failed.clear();
+        pics.broken.clear();
+        for (int i = 0; i < 20; i++) {
+            f = next.find(noNga, Collections.emptySet());
+            check(f != null && f.artwork.museum.equals("met"), "a museum turned off never hangs");
+        }
     }
 }

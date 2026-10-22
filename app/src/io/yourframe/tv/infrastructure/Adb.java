@@ -188,7 +188,7 @@ public final class Adb implements Closeable {
                             factory.generatePrivate(new PKCS8EncodedKeySpec(readFile(privateFile))));
                 } catch (GeneralSecurityException | IOException e) {
                     // Corrupted file (the power went out mid-write): new key; the TV asks again.
-                    android.util.Log.w(MetCatalogue.TAG, "ADB key unreadable, generating a new one");
+                    android.util.Log.w(CatalogueFile.TAG, "ADB key unreadable, generating a new one");
                 }
             }
             KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
