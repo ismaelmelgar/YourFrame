@@ -131,8 +131,7 @@ public class SettingsActivity extends Activity {
         space(right, 10);
         count = text("", Fonts.textItalic, 10.5f, MUTED);
         right.addView(count);
-        TextView credit = text("Images: The Metropolitan Museum of Art, Open Access (CC0). Type: Playfair Display, "
-                + "Libre Caslon Text (SIL OFL). Built on Free My TV (MIT).", Fonts.text, 8, MUTED);
+        TextView credit = text(getString(R.string.credits), Fonts.text, 8, MUTED);
         credit.setPadding(0, px(4), 0, 0);
         right.addView(credit);
 

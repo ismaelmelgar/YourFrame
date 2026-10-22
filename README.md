@@ -39,6 +39,25 @@ other works when a category has too few landscape ones, and for each work stores
 that removes the black or grey border around many Met photos (as fractions, so it applies to the original), and its
 average colour. `tools/make_icons.py` draws the launcher banner and icon.
 
+## Architecture
+
+Domain-driven, in four packages under `app/src/io/yourframe/tv`; dependencies point inward:
+
+- `domain`: plain Java, no Android. Artwork, Catalogue, Category, Exhibition (random order without repeating the
+  last 50), Frame, Mat, Night, Settings, Layout (the prototype's geometry: mat, window, masthead, caption, full bleed)
+  and Rotation (crossfade and caption timing).
+- `application`: NextArtwork, which finds the next artwork and its picture (downloaded, or kept on the TV when
+  offline). Its only port, `Pictures`, keeps Android out of it.
+- `infrastructure`: MetCatalogue (`assets/artworks.json`), MetPictures (HTTP download, decode, disk cache of 12),
+  SettingsStore (SharedPreferences), Adb and ScreensaverActivation (the TV's own ADB).
+- `ui`: ArtView (the one canvas), Painter (mat, window, bevel and procedural frames), Fonts, Names.
+
+The Android entry points (`ArtDream`, `SettingsActivity`, `PreviewActivity`) stay in `io.yourframe.tv` so the
+screensaver's component name, which TVs store in their settings, never changes. `build.sh` compiles `domain` and
+`application` without `android.jar` and runs `app/test/.../DomainTest.java` on the JVM before building the APK.
+
+Screenshots from the Google TV 14 emulator are in `docs/screenshots/`.
+
 ## Install and activate
 
 ```bash
