@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tagline">Arte del Met en tu pantalla</string>
+    <string name="masthead">Modo Arte</string>
+    <string name="unknown_artist">Autor desconocido</string>
+    <string name="untitled">Sin título</string>
+    <string name="offline_title">La galería espera</string>
+    <string name="offline_text">Las obras se colgarán aquí en cuanto la tele tenga internet.</string>
+    <string name="loading_text">Colgando la primera obra…</string>
+
+    <string name="cat_all">Todo (destacadas)</string>
+    <string name="cat_eu">Pintura europea</string>
+    <string name="cat_am">Pintura americana</string>
+    <string name="cat_as">Arte asiático</string>
+    <string name="cat_pr">Dibujos y grabados</string>
+    <string name="cat_is">Arte islámico</string>
+    <string name="cat_ph">Fotografía</string>
+
+    <string name="frame_bleed">A sangre</string>
+    <string name="frame_none">Solo passepartout</string>
+    <string name="frame_black">Negro fino</string>
+    <string name="frame_white">Blanco</string>
+    <string name="frame_oak">Roble</string>
+    <string name="frame_walnut">Nogal</string>
+    <string name="frame_gold">Dorado</string>
+
+    <string name="mat_paper">Papel</string>
+    <string name="mat_ivory">Marfil</string>
+    <string name="mat_stone">Piedra</string>
+    <string name="mat_sage">Salvia</string>
+    <string name="mat_navy">Azul marino</string>
+    <string name="mat_black">Negro</string>
+
+    <string name="night_off">No</string>
+    <string name="night_22">22:00 – 07:00</string>
+    <string name="night_23">23:00 – 08:00</string>
+    <string name="night_always">Siempre</string>
+
+    <string name="on">Sí</string>
+    <string name="off">No</string>
+
+    <string name="set_category">Categoría</string>
+    <string name="set_frame">Marco</string>
+    <string name="set_mat">Passepartout</string>
+    <string name="set_every">Cambiar cada</string>
+    <string name="set_info">Mostrar información</string>
+    <string name="set_clock">Mostrar reloj</string>
+    <string name="set_night">Atenuar de noche</string>
+    <string name="set_preview">Vista previa</string>
+    <string name="set_activate">Usar como salvapantallas</string>
+    <string name="settings_section">Ajustes</string>
+    <string name="works_count">%1$d obras</string>
+    <string name="hint">◀ ▶ cambiar · OK siguiente</string>
+
+    <string name="saver_is_on">YourFrame es el salvapantallas.</string>
+    <string name="saver_is_off">YourFrame aún no es el salvapantallas.</string>
+    <string name="act_working">Preguntando a la tele…</string>
+    <string name="act_allow">En la tele: acepta «¿Permitir la depuración por USB?» y marca «Permitir siempre».</string>
+    <string name="act_done">Hecho: YourFrame ya es el salvapantallas.</string>
+    <string name="act_failed">No se ha podido activar desde aquí: %1$s.</string>
+    <string name="act_debug_off">activa Opciones para desarrolladores → Depuración por USB (Ajustes → Sistema → Información → Compilación del SO de Android TV, 7 pulsaciones)</string>
+    <string name="act_rejected">no se aceptó el permiso de depuración en la tele</string>
+    <string name="act_no_reply">el servicio de depuración de la tele no respondió</string>
+    <string name="act_opened">Elige YourFrame en la lista de salvapantallas.</string>
+    <string name="act_computer">Desde un ordenador: %1$s</string>
+</resources>

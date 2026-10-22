@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's name: here and in build.sh (APP_NAME). -->
+    <string name="app_name" translatable="false">YourFrame</string>
+    <string name="tagline">Art from The Met on your screen</string>
+    <string name="masthead">Art Mode</string>
+    <string name="museum" translatable="false">The Metropolitan Museum of Art</string>
+    <string name="unknown_artist">Unknown artist</string>
+    <string name="untitled">Untitled</string>
+    <string name="offline_title">The gallery is waiting</string>
+    <string name="offline_text">Works will hang here as soon as the TV is online.</string>
+    <string name="loading_text">Hanging the first work…</string>
+
+    <string name="cat_all">All (highlights)</string>
+    <string name="cat_eu">European paintings</string>
+    <string name="cat_am">American paintings</string>
+    <string name="cat_as">Asian art</string>
+    <string name="cat_pr">Drawings &amp; prints</string>
+    <string name="cat_is">Islamic art</string>
+    <string name="cat_ph">Photography</string>
+
+    <string name="frame_bleed">Full bleed</string>
+    <string name="frame_none">Mat only</string>
+    <string name="frame_black">Thin black</string>
+    <string name="frame_white">White</string>
+    <string name="frame_oak">Oak</string>
+    <string name="frame_walnut">Walnut</string>
+    <string name="frame_gold">Gold</string>
+
+    <string name="mat_paper">Paper</string>
+    <string name="mat_ivory">Ivory</string>
+    <string name="mat_stone">Stone</string>
+    <string name="mat_sage">Sage</string>
+    <string name="mat_navy">Navy</string>
+    <string name="mat_black">Black</string>
+
+    <string name="night_off">Off</string>
+    <string name="night_22">22:00 – 07:00</string>
+    <string name="night_23">23:00 – 08:00</string>
+    <string name="night_always">Always</string>
+
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="every_s">%d s</string>
+    <string name="every_min">%d min</string>
+
+    <string name="set_category">Category</string>
+    <string name="set_frame">Frame</string>
+    <string name="set_mat">Mat</string>
+    <string name="set_every">Change every</string>
+    <string name="set_info">Show information</string>
+    <string name="set_clock">Show clock</string>
+    <string name="set_night">Night dimming</string>
+    <string name="set_preview">Preview</string>
+    <string name="set_activate">Set as screensaver</string>
+    <string name="settings_section">Settings</string>
+    <string name="works_count">%1$d works</string>
+    <string name="hint">◀ ▶ change · OK next</string>
+    <string name="hint_action">OK</string>
+
+    <string name="saver_is_on">YourFrame is the screensaver.</string>
+    <string name="saver_is_off">YourFrame is not the screensaver yet.</string>
+    <string name="act_working">Asking the TV…</string>
+    <string name="act_allow">On the TV: accept “Allow USB debugging?” and tick “Always allow”.</string>
+    <string name="act_done">Done: YourFrame is now the screensaver.</string>
+    <string name="act_failed">Couldn’t set it from here: %1$s.</string>
+    <string name="act_debug_off">turn on Developer options → USB debugging (Settings → System → About → Android TV OS build, 7 taps)</string>
+    <string name="act_rejected">debugging permission wasn’t accepted on the TV</string>
+    <string name="act_no_reply">the TV’s debugging service didn’t answer</string>
+    <string name="act_opened">Choose YourFrame in the screensaver list.</string>
+    <string name="act_computer">From a computer: %1$s</string>
+</resources>

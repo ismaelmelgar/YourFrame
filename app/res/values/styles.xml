@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Paper" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:colorBackground">@color/paper</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:colorAccent">@color/ink</item>
+        <item name="android:textColor">@color/ink</item>
+    </style>
+    <style name="Paper.Full">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+    <color name="paper">#F1EDE4</color>
+    <color name="ink">#1E1C19</color>
+</resources>
