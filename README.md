@@ -1,91 +1,80 @@
 # YourFrame
 
-An art screensaver for Android TV and Google TV in the style of Samsung's The Frame: public-domain works from four
-museums (The Metropolitan Museum of Art, the Cleveland Museum of Art, Statens Museum for Kunst and the National
-Gallery of Art, Washington), on a mat or full bleed, in a frame drawn at the screen's edge, with a newspaper-style
-masthead and caption.
+**Turn your Android TV or Google TV into a gallery.** When the TV is idle, YourFrame hangs a masterpiece on it:
+a painting, a print or a photograph from four of the world's great museums, framed and matted like The Frame,
+with the time and a newspaper-style caption.
 
-- Only landscape works (width / height ≥ 1.2), so they fill a 16:9 screen.
-- Categories, the same across museums: All (everything but photography), European paintings, American paintings,
-  Asian art, Drawings & prints, Islamic art, Photography. Museums: each one on or off (one always stays on).
-- IIIF where the museum has it (SMK, NGA): the TV asks for exactly its screen's width, crisp at 1080p.
-- Frames: full bleed, mat only, thin black, white, oak, walnut, gold. Mats: paper, ivory, stone, sage, navy, black.
-- A slow 2 s crossfade every 30 s, 1, 5 or 15 min; the caption leaves 10 s after a work arrives; dimmer at night.
-- Type: Playfair Display and Libre Caslon Text (bundled, SIL OFL).
-- Works offline: the last 12 works are kept on the TV.
-- English and Spanish, following the TV's language.
+![Francesco Guardi, The Grand Canal above the Rialto, in a gold frame on an ivory mat](docs/screenshots/hero-guardi-gold-ivory.jpg)
 
-It's a plain Java app (Android 8+, no libraries, no Gradle), built the same way as
-[Free My TV](https://github.com/simbasjungles/free-my-tv).
+<p align="center">
+  <a href="https://github.com/ismaelmelgar/YourFrame/releases/latest"><b>⬇ Download YourFrame.apk</b></a>
+  &nbsp;·&nbsp; free and open source &nbsp;·&nbsp; no account, no ads, no tracking
+</p>
 
-## Build
+## A different work every time
 
-Needs a JDK 17 and the Android SDK command-line tools (build-tools 34, platform android-34).
+More than **6,000 public-domain works** from The Metropolitan Museum of Art, the Cleveland Museum of Art, the National
+Gallery of Art in Washington and SMK, the National Gallery of Denmark. Every one is chosen to suit a TV: landscape,
+sharp at 1080p, and shown whole, never cropped.
 
-```bash
-./build.sh          # → YourFrame.apk, signed with yourframe.keystore (created the first time; keep it, don't commit it)
-```
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/pissarro-full-bleed.jpg" alt="Camille Pissarro, Jalais Hill, full bleed · The Met"><br><sub>Camille Pissarro, Jalais Hill, full bleed · The Met</sub></td>
+<td width="50%"><img src="docs/screenshots/homer-walnut-paper.jpg" alt="Winslow Homer in walnut, on paper · National Gallery of Art"><br><sub>Winslow Homer in walnut, on paper · National Gallery of Art</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/vallotton-walnut-navy.jpg" alt="Félix Vallotton on a navy mat · National Gallery of Art"><br><sub>Félix Vallotton on a navy mat · National Gallery of Art</sub></td>
+<td width="50%"><img src="docs/screenshots/datia-oak-sage.jpg" alt="A Rajput painting in oak, on sage · Cleveland Museum of Art"><br><sub>A Rajput painting in oak, on sage · Cleveland Museum of Art</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/kroyer-gold-sage.jpg" alt="P.S. Krøyer in gold · SMK, Copenhagen"><br><sub>P.S. Krøyer in gold · SMK, Copenhagen</sub></td>
+<td width="50%"><img src="docs/screenshots/zeeman-black-stone.jpg" alt="An etching in thin black, on stone · SMK, Copenhagen"><br><sub>An etching in thin black, on stone · SMK, Copenhagen</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/iznik-white-black.jpg" alt="An Iznik dish in white, on black · The Met"><br><sub>An Iznik dish in white, on black · The Met</sub></td>
+<td width="50%"><img src="docs/screenshots/walnut-navy-american.png" alt="Winslow Homer, The Veteran in a New Field · The Met"><br><sub>Winslow Homer, The Veteran in a New Field · The Met</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/moillon-mat-only.jpg" alt="Louise Moillon, mat only · National Gallery of Art"><br><sub>Louise Moillon, mat only · National Gallery of Art</sub></td>
+<td width="50%"><img src="docs/screenshots/oak-sage-asian.png" alt="Guo Xi, Old Trees, Level Distance · The Met"><br><sub>Guo Xi, Old Trees, Level Distance · The Met</sub></td>
+</tr>
+</table>
 
-The app's name and package id live at the top of `build.sh` (`APP_NAME`, `APP_ID`) and in
-`app/res/values/strings.xml` (`app_name`).
+## Make it yours
 
-The list of works (`app/assets/artworks.json`) is generated on a computer and bundled in the APK:
+- **Seven frames:** full bleed, mat only, thin black, white, oak, walnut and gold.
+- **Six mats:** paper, ivory, stone, sage, navy and black.
+- **Choose what hangs:** European paintings, American paintings, Asian art, Islamic art, drawings and prints,
+  photography, or everything; and which museums.
+- **Your pace:** a new work every 30 seconds, 1, 5 or 15 minutes, with a slow crossfade.
+- **Quiet at night:** dims itself late in the evening. The caption fades away 10 seconds after each work arrives, and
+  the clock can be turned off.
+- **Works offline:** the last works shown stay on the TV.
+- **English and Spanish**, following the TV's language.
 
-```bash
-python3 -m venv .venv && .venv/bin/pip install Pillow
-.venv/bin/python tools/make_artlist.py      # API responses and images are cached in tools/.cache (ignored by git)
-```
+Every change shows up live in the preview while you set it up:
 
-One command, reproducible and resumable (a rerun only fetches what isn't cached). Each museum is an adapter in
-`tools/artlist/` (`met.py`, `cma.py`, `smk.py`, `nga.py`) that yields its free works mapped to the common categories;
-`tools/artlist/rules.py` holds what every work must pass, tested by `tools/test_artlist.py` (run by `build.sh` too):
+![YourFrame's settings with a live preview](docs/screenshots/settings.jpg)
 
-- public domain or CC0, checked on each work's own licence field;
-- landscape (≥ 1.2) after cropping the black or grey border of the museum's photo (the crop is stored as fractions,
-  so it applies to the full image), and at least 1600 px on the long side where the museum gives the size;
-- not a negative, a fragment or a blank or very pale sheet (measured on a small copy, which also gives the colour);
-- not a duplicate of another museum's (same artist, title and date: prints often exist in several impressions).
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/night-dimmed.jpg" alt="Dimmed at night"><br><sub>Dimmed at night</sub></td>
+<td width="50%"><img src="docs/screenshots/trouillebert-full-bleed.jpg" alt="Full bleed: the work fills the screen"><br><sub>Full bleed: the work fills the screen</sub></td>
+</tr>
+</table>
 
-The list is balanced: at most 450 works per museum and category. Each work stores its museum, caption, picture (a
-path under the museum's image server, or its IIIF service with the full width), ratio, crop and colour.
-`tools/make_icons.py` draws the launcher banner and icon.
+## Get it in three steps
 
-## Architecture
+1. **Install.** Download [`YourFrame.apk`](https://github.com/ismaelmelgar/YourFrame/releases/latest) and install it
+   from a computer (or with any sideloading app):
 
-Domain-driven, in four packages under `app/src/io/yourframe/tv`; dependencies point inward:
+   ```bash
+   adb connect <TV-IP>:5555          # accept "Allow USB debugging?" on the TV
+   adb install -r YourFrame.apk
+   ```
 
-- `domain`: plain Java, no Android. Artwork, Museum, ImageRef (fixed URL or IIIF), Catalogue, Category, Exhibition (random order without repeating the
-  last 50), Frame, Mat, Night, Settings, Layout (the prototype's geometry: mat, window, masthead, caption, full bleed)
-  and Rotation (crossfade and caption timing).
-- `application`: NextArtwork, which finds the next artwork and its picture (downloaded, or kept on the TV when
-  offline). Its only port, `Pictures`, keeps Android out of it.
-- `infrastructure`: CatalogueFile (`assets/artworks.json`, every museum), MuseumPictures (IIIF at the screen's width
-  or the museum's full image over HTTP, decode, disk cache of 12),
-  SettingsStore (SharedPreferences), Adb and ScreensaverActivation (the TV's own ADB).
-- `ui`: ArtView (the one canvas), Painter (mat, window, bevel and procedural frames), Fonts, Names.
-
-The museums plug in at the Catalogue: each museum's adapter is in the data tool (`tools/artlist/`) and writes the same
-rows (museum, id, category, caption, picture, ratio, crop, colour); the app reads them all with one adapter,
-CatalogueFile, and a work's ImageRef says whether its picture is a fixed URL or a IIIF service.
-
-The Android entry points (`ArtDream`, `SettingsActivity`, `PreviewActivity`) stay in `io.yourframe.tv` so the
-screensaver's component name, which TVs store in their settings, never changes. `build.sh` compiles `domain` and
-`application` without `android.jar` and runs `app/test/.../DomainTest.java` on the JVM before building the APK.
-
-Screenshots from the Google TV 14 emulator are in `docs/screenshots/`.
-
-## Install and activate
-
-Download `YourFrame.apk` from the [latest release](https://github.com/ismaelmelgar/YourFrame/releases/latest)
-(or build it, below), then:
-
-```bash
-adb connect <TV-IP>:5555          # accept "Allow USB debugging?" on the TV
-adb install -r YourFrame.apk
-```
-
-Open **YourFrame** from the apps row to choose the category, frame, mat and the rest; the preview on the right shows
-each change. Then **Set as screensaver**:
+2. **Set it up.** Open **YourFrame** from the apps row and pick a frame, a mat and what to show.
+3. **Make it your screensaver.** Choose **Set as screensaver**:
 
 - **Android TV** (e.g. Mi Box, Shield): it opens the system's screensaver settings; pick YourFrame there.
 - **Google TV** (Chromecast with Google TV, Google TV Streamer, TVs with Google TV): Google TV doesn't list
@@ -97,9 +86,29 @@ each change. Then **Set as screensaver**:
   adb shell settings put secure screensaver_components io.yourframe.tv/.ArtDream
   ```
 
-The TV still decides when the screensaver starts and when the screen turns off; YourFrame doesn't change those times.
-To try it right away, use *Preview* in the app (on classic Android TV also
-`adb shell am start -n com.android.systemui/.Somnambulator`; Google TV doesn't have it).
+
+## Questions
+
+**Why doesn't YourFrame appear in Google TV's screensaver settings?**
+Google TV only lists its own screensavers. YourFrame works around it through the TV's own debugging connection (the
+one-time *Allow USB debugging?* prompt), or with the one-line `adb` command above. Classic Android TV lists it
+normally.
+
+**When does it start?**
+Whenever the TV would start its screensaver. YourFrame doesn't change when the screensaver starts or when the screen
+turns off. To see it right away, use *Preview* in the app.
+
+**Does it use much data or memory?**
+Each picture is downloaded at your screen's size (about 1–3 MB) once per change. On a Chromecast with Google TV it uses
+about 65 MB of memory and runs smoothly.
+
+**Which devices?**
+Android TV and Google TV 8.0 and later: Chromecast with Google TV, Google TV Streamer, Nvidia Shield, Mi Box, and TVs
+running Android TV or Google TV.
+
+**Can I use these images?**
+Yes. Every work is public domain or CC0, as published by its museum, and each caption names the museum.
+YourFrame isn't affiliated with any of them.
 
 ## Credits
 
@@ -117,6 +126,11 @@ caption names the work's museum:
 - Fonts: Playfair Display and Libre Caslon Text, SIL Open Font License 1.1 (`app/assets/fonts`).
 - Built on [Free My TV](https://github.com/simbasjungles/free-my-tv) (MIT): `build.sh`, the ADB client and the
   screensaver's structure. See `NOTICE`.
+
+## For developers
+
+YourFrame is a small plain-Java app (no libraries, no Gradle). How to build it, how the list of works is generated
+from the museums' open data, and how the code is organised: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## License
 
