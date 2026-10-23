@@ -50,6 +50,8 @@ check(rules.quality(a(mean=230, spread=40)) is None, "a light but contrasted dra
 check(rules.quality(None) == "unreadable", "unreadable image")
 check(rules.rejected_by_text("[The Oriel Window]", "Paper negative"), "negatives")
 check(rules.rejected_by_text("Fragment of a Carpet", "") and rules.rejected_by_text("Textile fragments", ""), "fragments")
+check(rules.archive_photo("https://images.metmuseum.org/CRDImages/ep/original/ep90.25.bw.R.jpg")
+      and not rules.archive_photo("https://images.metmuseum.org/CRDImages/ep/original/DT1567.jpg"), "archive b/w photos")
 check(not rules.rejected_by_text("The Harvesters", "Oil on wood"), "an ordinary painting")
 check(not rules.rejected_by_text("A night scene (recto); Calligraphy (verso)", "Fragment of a handscroll, ink"),
       "a recto with its verso noted, or a medium mentioning a fragment, still hangs")

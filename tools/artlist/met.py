@@ -55,7 +55,7 @@ def candidates(full):
             if full(cat) or n >= MAX_OBJECTS:
                 break
             o = common.fetch("%s/v1/objects/%d" % (API, oid))
-            if not o or not o.get("isPublicDomain") or not o.get("primaryImage"):
+            if not o or not o.get("isPublicDomain") or not o.get("primaryImage") or rules.archive_photo(o["primaryImage"]):
                 continue
             r = _measured_ratio(o)
             if r is not None and r < rules.LANDSCAPE * 0.92:    # measurements include mounts: a little slack

@@ -101,10 +101,6 @@ public class SettingsActivity extends Activity {
             status.setText(t);
             if (done) refreshStatus(false);
         })));
-        space(left, 10);
-        status = text("", Fonts.text, 10.5f, MUTED);
-        status.setLineSpacing(0, 1.25f);
-        left.addView(status);
 
         // Right: the live preview, like a print on the page, and its credit line.
         LinearLayout right = new LinearLayout(this);
@@ -135,6 +131,11 @@ public class SettingsActivity extends Activity {
         TextView credit = text(getString(R.string.credits), Fonts.text, 8, MUTED);
         credit.setPadding(0, px(4), 0, 0);
         right.addView(credit);
+        // Whether YourFrame is the screensaver, and the adb command if not: here, as the settings fill the left column.
+        space(right, 12);
+        status = text("", Fonts.text, 10.5f, MUTED);
+        status.setLineSpacing(0, 1.25f);
+        right.addView(status);
 
         setContentView(root);
         left.getChildAt(4).requestFocus();   // the first row (after title, tagline, rule and space)

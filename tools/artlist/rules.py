@@ -12,6 +12,7 @@ MAX_RATIO = 2.6         # wider still (palm leaves, scroll strips, Muybridge seq
 MIN_LONG_SIDE = 1600    # the full image must be at least this big on its long side, where the museum says
 NEGATIVE = re.compile(r"\b(negatives?|negativ)\b", re.I)
 NOT_A_WORK = re.compile(r"\b(fragments?|fragmenter|sample book|swatch)\b", re.I)
+ARCHIVE_PHOTO = re.compile(r"\.bw\.", re.I)   # the Met's old black-and-white photos of works in colour (ep90.25.bw.R.jpg)
 
 
 def norm(s):
@@ -27,6 +28,11 @@ def dedupe_key(artist, title, date):
 def rejected_by_text(title, medium):
     """Negatives (title or medium) and fragments or sample books (by the title) aren't works to hang."""
     return bool(NEGATIVE.search(title or "") or NEGATIVE.search(medium or "") or NOT_A_WORK.search(title or ""))
+
+
+def archive_photo(image_url):
+    """An old black-and-white photograph of a painting stands in for some works: a grey oil isn't the work."""
+    return bool(ARCHIVE_PHOTO.search(image_url or ""))
 
 
 def quality(analysis, native=None):
