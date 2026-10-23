@@ -76,6 +76,9 @@ Screenshots from the Google TV 14 emulator are in `docs/screenshots/`.
 
 ## Install and activate
 
+Download `YourFrame.apk` from the [latest release](https://github.com/ismaelmelgar/YourFrame/releases/latest)
+(or build it, below), then:
+
 ```bash
 adb connect <TV-IP>:5555          # accept "Allow USB debugging?" on the TV
 adb install -r YourFrame.apk
@@ -95,7 +98,8 @@ each change. Then **Set as screensaver**:
   ```
 
 The TV still decides when the screensaver starts and when the screen turns off; YourFrame doesn't change those times.
-To try it right away: `adb shell am start -n com.android.systemui/.Somnambulator`, or *Preview* in the app.
+To try it right away, use *Preview* in the app (on classic Android TV also
+`adb shell am start -n com.android.systemui/.Somnambulator`; Google TV doesn't have it).
 
 ## Credits
 
@@ -113,3 +117,7 @@ caption names the work's museum:
 - Fonts: Playfair Display and Libre Caslon Text, SIL Open Font License 1.1 (`app/assets/fonts`).
 - Built on [Free My TV](https://github.com/simbasjungles/free-my-tv) (MIT): `build.sh`, the ADB client and the
   screensaver's structure. See `NOTICE`.
+
+## License
+
+MIT (`LICENSE`). Third-party code, fonts and images keep their own terms: see Credits and `NOTICE`.
