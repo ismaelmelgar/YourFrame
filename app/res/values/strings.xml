@@ -2,7 +2,7 @@
 <resources>
     <!-- The app's name: here and in build.sh (APP_NAME). -->
     <string name="app_name" translatable="false">YourFrame</string>
-    <string name="tagline">Art from The Met on your screen</string>
+    <string name="tagline">Art from great museums on your screen</string>
     <string name="masthead">Art Mode</string>
     <string name="unknown_artist">Unknown artist</string>
     <string name="untitled">Untitled</string>
@@ -68,6 +68,6 @@
     <string name="act_no_reply">the TV’s debugging service didn’t answer</string>
     <string name="act_opened">Choose YourFrame in the screensaver list.</string>
     <string name="act_computer">From a computer: %1$s</string>
-    <string name="credits">Images: The Metropolitan Museum of Art, Open Access (CC0). Type: Playfair Display, Libre Caslon Text (SIL OFL). Built on Free My TV (MIT).</string>
+    <string name="credits">Images: The Met, the Cleveland Museum of Art and the National Gallery of Art (CC0), SMK (Public Domain Mark). Type: Playfair Display, Libre Caslon Text (SIL OFL). Built on Free My TV (MIT).</string>
     <string name="set_museums">Museums</string>
 </resources>

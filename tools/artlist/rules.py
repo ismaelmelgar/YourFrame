@@ -8,6 +8,7 @@ import unicodedata
 CATEGORIES = ("eu", "am", "as", "is", "pr", "ph")   # European painting, American painting, Asian art, Islamic art,
                                                    # Drawings & prints, Photography (the app adds "all")
 LANDSCAPE = 1.2         # wider than 6:5 (a 16:9 screen is 1.78)
+MAX_RATIO = 2.6         # wider still (palm leaves, scroll strips, Muybridge sequences) is a thin band on the mat
 MIN_LONG_SIDE = 1600    # the full image must be at least this big on its long side, where the museum says
 NEGATIVE = re.compile(r"\b(negatives?|negativ)\b", re.I)
 NOT_A_WORK = re.compile(r"\b(fragments?|fragmenter|sample book|swatch)\b", re.I)
@@ -37,6 +38,8 @@ def quality(analysis, native=None):
         return "unreadable"
     if analysis["ratio"] < LANDSCAPE:
         return "portrait"
+    if analysis["ratio"] > MAX_RATIO:
+        return "strip"
     if native and max(native) < MIN_LONG_SIDE:
         return "small"
     if analysis["spread"] < 12:

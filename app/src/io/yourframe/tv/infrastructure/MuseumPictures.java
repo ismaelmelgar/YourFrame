@@ -93,10 +93,13 @@ public final class MuseumPictures implements NextArtwork.Pictures<Bitmap> {
         File f = cached(c, work.id);
         if (f != null) {
             Bitmap b = decodeCached(f, w, h);
-            if (b != null) {
+            // A copy kept for a smaller screen (the settings' preview) is downloaded again when the TV is online.
+            boolean tooSmall = b != null && online && b.getWidth() < Layout.keptSize(work.ratio, w, h)[0] * 0.9f;
+            if (b != null && !tooSmall) {
                 f.setLastModified(System.currentTimeMillis());
                 return b;
             }
+            if (b != null) b.recycle();
             f.delete();
         }
         if (!online) throw new IOException("not cached");
@@ -104,7 +107,9 @@ public final class MuseumPictures implements NextArtwork.Pictures<Bitmap> {
         boolean original = true;
         try {
             try {
-                download(work.image.url(Layout.keptSize(work.ratio, w, h)[0], work.cropWidth()), tmp);
+                String url = work.image.url(Layout.keptSize(work.ratio, w, h)[0], work.cropWidth());
+                Log.i(CatalogueFile.TAG, "downloading " + url);
+                download(url, tmp);
             } catch (IOException e) {
                 String small = work.image.fallback();
                 if (small == null) throw e;

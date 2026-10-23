@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tagline">Arte del Met en tu pantalla</string>
+    <string name="tagline">Arte de grandes museos en tu pantalla</string>
     <string name="masthead">Modo Arte</string>
     <string name="unknown_artist">Autor desconocido</string>
     <string name="untitled">Sin título</string>
@@ -63,6 +63,6 @@
     <string name="act_no_reply">el servicio de depuración de la tele no respondió</string>
     <string name="act_opened">Elige YourFrame en la lista de salvapantallas.</string>
     <string name="act_computer">Desde un ordenador: %1$s</string>
-    <string name="credits">Imágenes: The Metropolitan Museum of Art, Open Access (CC0). Tipografía: Playfair Display, Libre Caslon Text (SIL OFL). Basada en Free My TV (MIT).</string>
+    <string name="credits">Imágenes: The Met, Cleveland Museum of Art y National Gallery of Art (CC0), SMK (dominio público). Tipografía: Playfair Display, Libre Caslon Text (SIL OFL). Basada en Free My TV (MIT).</string>
     <string name="set_museums">Museos</string>
 </resources>

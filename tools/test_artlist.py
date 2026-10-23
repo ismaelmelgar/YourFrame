@@ -41,6 +41,7 @@ check(set(rules.CATEGORIES) == {"eu", "am", "as", "is", "pr", "ph"}, "the six co
 # Quality and landscape.
 check(rules.quality(a()) is None, "a good landscape work hangs")
 check(rules.quality(a(ratio=1.19)) == "portrait" and rules.quality(a(ratio=1.2)) is None, "landscape from 1.2")
+check(rules.quality(a(ratio=2.6)) is None and rules.quality(a(ratio=7)) == "strip", "but not a thin strip")
 check(rules.quality(a(), (1400, 1000)) == "small" and rules.quality(a(), (1600, 1000)) is None, "1600 px long side")
 check(rules.quality(a(), None) is None, "unknown size (the Met) isn't rejected")
 check(rules.quality(a(mean=230, spread=15)) == "pale", "a pale sketch on a white sheet")
