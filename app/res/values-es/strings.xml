@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tagline">Arte de grandes museos en tu pantalla</string>
+    <string name="tagline">Arte de grandes museos</string>
     <string name="masthead">Modo Arte</string>
     <string name="unknown_artist">Autor desconocido</string>
     <string name="untitled">Sin título</string>

@@ -2,7 +2,7 @@
 <resources>
     <!-- The app's name: here and in build.sh (APP_NAME). -->
     <string name="app_name" translatable="false">YourFrame</string>
-    <string name="tagline">Art from great museums on your screen</string>
+    <string name="tagline">Art from great museums</string>
     <string name="masthead">Art Mode</string>
     <string name="unknown_artist">Unknown artist</string>
     <string name="untitled">Untitled</string>

@@ -16,6 +16,7 @@ API = "https://collectionapi.metmuseum.org/public/collection"
 SEARCHES = {"eu": [(11, None), (15, "Paintings")], "am": [(1, "Paintings")], "as": [(6, None)],
             "is": [(14, None)], "pr": [(9, None)], "ph": [(19, None)]}
 MAX_IDS = 8000          # per search: Drawings and Prints alone has 100,000 objects with images
+MAX_OBJECTS = 3000      # objects looked up per category: most Met photographs aren't public domain
 
 
 def _search(dept, medium, highlight):
@@ -50,8 +51,8 @@ def candidates(full):
                 if i not in seen:
                     seen.add(i)
                     ids.append(i)
-        for oid in ids:
-            if full(cat):
+        for n, oid in enumerate(ids):
+            if full(cat) or n >= MAX_OBJECTS:
                 break
             o = common.fetch("%s/v1/objects/%d" % (API, oid))
             if not o or not o.get("isPublicDomain") or not o.get("primaryImage"):
